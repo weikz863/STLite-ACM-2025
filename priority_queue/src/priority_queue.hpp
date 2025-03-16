@@ -41,6 +41,9 @@ class SharedPtr {
 		if (get != nullptr) return SharedPtr(new T(*get));
 		else return {};
 	}
+  explicit operator bool() {
+    return get != nullptr;
+  }
   const T& operator*() const { return *get; }
   T& operator*() { return *get; }
   const T* operator->() const { return get; }
@@ -53,8 +56,9 @@ class UniqueArray {
  private:
   T *arr;
  public:
-  UniqueArray(size_t size) : arr(new T[size]) {}
+  UniqueArray(size_t size = 0) : arr(new T[size]) {}
   ~UniqueArray() { delete[] arr; }
+  UniqueArray(const UniqueArray &) = delete;
   T& operator[](size_t x) {
     return arr[x];
   }
@@ -79,6 +83,8 @@ class priority_queue { // pairing heap
    public:
     Node(const T & val, SharedPtr<Node> fc = SharedPtr<Node>(), SharedPtr<Node> sib = SharedPtr<Node>()) : 
         value(new T(val)), first_child(fc), sibling(sib) {}
+    Node(SharedPtr<const T> val, SharedPtr<Node> fc = SharedPtr<Node>(), SharedPtr<Node> sib = SharedPtr<Node>()) : 
+        value(val), first_child(fc), sibling(sib) {}
     Node(const Node &other) : value(other.value.deep_copy()),
         first_child(other.first_child.deep_copy()), sibling(other.sibling.deep_copy()) {}
     friend class priority_queue;
@@ -86,6 +92,8 @@ class priority_queue { // pairing heap
   SharedPtr<Node> root;
 	size_t size_;
   std::function<bool(const T&, const T&)> cmp;
+  priority_queue(SharedPtr<Node> rt) : root(new Node(rt->value, rt->first_child)),
+      size_(0), cmp(Compare()) {} // WARNING: size not accurate
  public:
   
   /**
@@ -122,6 +130,11 @@ class priority_queue { // pairing heap
     other = *this;
     *this = tmp;
   }
+  
+  void clear() {
+    root.reset();
+    size_ = 0;
+  }
 
   /**
    * @brief get the top element of the priority queue.
@@ -129,6 +142,7 @@ class priority_queue { // pairing heap
    * @throws container_is_empty if empty() returns true
    */
   const T & top() const {
+    if (size_ == 0) throw container_is_empty();
 		return *root->value;
 	}
 
@@ -153,7 +167,27 @@ class priority_queue { // pairing heap
    * @throws container_is_empty if empty() returns true
    */
   void pop() {
-    
+    if (size_ == 0) throw container_is_empty();
+    size_t child_cnt = 0;
+    for (SharedPtr p = root->first_child; p; p = p->sibling) {
+      child_cnt++;
+    }
+    if (child_cnt == 0) {
+      clear();
+      return;
+    }
+    UniqueArray<priority_queue> arr(child_cnt);
+    size_t i = 0;
+    for (SharedPtr p = root->first_child; p; p = p->sibling) {
+      arr[i++] = p;
+    }
+    for (i = 0; i + 1 < child_cnt; i += 2) {
+      arr[i].merge(arr[i + 1]);
+    }
+    for (i >= child_cnt ? i -= 2 : i; i >= 2; i -= 2) {
+      arr[i - 2].merge(arr[i]);
+    }
+    swap(arr[0]);
   }
 
   /**
@@ -181,12 +215,12 @@ class priority_queue { // pairing heap
       return;
     }
     if (cmp(top(), other.top())) {
-      root->sibling = other.root->first_son;
-      other.root->first_son = root;
+      root->sibling = other.root->first_child;
+      other.root->first_child = root;
       swap(other);
     } else {
-      other.root->sibling = root->first_son;
-      root->first_son = other.root;
+      other.root->sibling = root->first_child;
+      root->first_child = other.root;
     }
     size_ += other.size_;
     other.clear();
