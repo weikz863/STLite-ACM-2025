@@ -5,6 +5,7 @@
 
 #include <climits>
 #include <cstddef>
+
 /*
 template< class T, class... Args >
 T* std::construct_at( T* location, Args&&... args ) {
@@ -233,6 +234,7 @@ public:
     other.size_ = 0;
     other.capacity_ = kSMALL;
     other.arr = other.alloc.allocate(kSMALL);
+    return *this;
   }
   /**
    * assigns specified element with bounds checking
