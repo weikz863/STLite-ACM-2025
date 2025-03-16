@@ -37,7 +37,7 @@ class SharedPtr {
     cnt = nullptr;
     get = nullptr;
   }
-	SharedPtr deep_copy() {
+	SharedPtr deep_copy() const {
 		if (get != nullptr) return SharedPtr(new T(*get));
 		else return {};
 	}
@@ -72,18 +72,22 @@ template<typename T, class Compare = std::less<T>>
 class priority_queue { // pairing heap
  private:
   class Node {
+   private:
     SharedPtr<const T> value;
     SharedPtr<Node> first_child;
     SharedPtr<Node> sibling;
+   public:
     Node(const T & val, SharedPtr<Node> fc = SharedPtr<Node>(), SharedPtr<Node> sib = SharedPtr<Node>()) : 
         value(new T(val)), first_child(fc), sibling(sib) {}
     Node(const Node &other) : value(other.value.deep_copy()),
-		    first_child(other.first_child.deep_copy()), sibling(other.sibling.deep_copy()) {}
+        first_child(other.first_child.deep_copy()), sibling(other.sibling.deep_copy()) {}
+    friend class priority_queue;
   };
   SharedPtr<Node> root;
 	size_t size_;
   std::function<bool(const T&, const T&)> cmp;
  public:
+  
   /**
    * @brief default constructor
    */
@@ -110,7 +114,14 @@ class priority_queue { // pairing heap
 		root = other.root.deep_copy();
 		size_ = other.size_;
     cmp = other.cmp;
+    return *this;
 	}
+  
+  void swap(priority_queue &other) {
+    priority_queue tmp = other;
+    other = *this;
+    *this = tmp;
+  }
 
   /**
    * @brief get the top element of the priority queue.
@@ -126,17 +137,24 @@ class priority_queue { // pairing heap
    * @param e the element to be pushed
    */
   void push(const T &e) {
-    SharedPtr<Node> new_heap = new Node(e);
+    SharedPtr<Node> new_node = new Node(e);
     if (cmp(e, top())) {
-
+      new_node->sibling = root->first_child;
+      root->first_child = new_node;
+    } else {
+      new_node->first_child = root;
+      root = new_node;
     }
+    size_++;
   }
 
   /**
    * @brief delete the top element from the priority queue.
    * @throws container_is_empty if empty() returns true
    */
-  void pop() {}
+  void pop() {
+    
+  }
 
   /**
    * @brief return the number of elements in the priority queue.
@@ -156,7 +174,23 @@ class priority_queue { // pairing heap
    * The complexity is at most O(logn).
    * @param other the priority_queue to be merged.
    */
-  void merge(priority_queue &other) {}
+  void merge(priority_queue &other) {
+    if (other.empty()) return;
+    if (empty()) {
+      swap(other);
+      return;
+    }
+    if (cmp(top(), other.top())) {
+      root->sibling = other.root->first_son;
+      other.root->first_son = root;
+      swap(other);
+    } else {
+      other.root->sibling = root->first_son;
+      root->first_son = other.root;
+    }
+    size_ += other.size_;
+    other.clear();
+  }
 };
 
 }
