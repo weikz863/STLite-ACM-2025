@@ -1,6 +1,7 @@
 #ifndef SJTU_PRIORITY_QUEUE_HPP
 #define SJTU_PRIORITY_QUEUE_HPP
 
+#include <iostream>
 #include <cstddef>
 #include <functional>
 #include "exceptions.hpp"
@@ -37,11 +38,11 @@ class SharedPtr {
     cnt = nullptr;
     get = nullptr;
   }
-	SharedPtr deep_copy() const {
-		if (get != nullptr) return SharedPtr(new T(*get));
-		else return {};
-	}
-  explicit operator bool() {
+  SharedPtr deep_copy() const {
+    if (get != nullptr) return SharedPtr(new T(*get));
+    else return {};
+  }
+  explicit operator bool() const {
     return get != nullptr;
   }
   const T& operator*() const { return *get; }
@@ -80,6 +81,13 @@ class priority_queue { // pairing heap
     SharedPtr<const T> value;
     SharedPtr<Node> first_child;
     SharedPtr<Node> sibling;
+    void dfs() const {
+      std::cout << *value << "\nfc:" << std::endl;
+      if (first_child) first_child->dfs();
+      std::cout << "sibling:" << std::endl;
+      if (sibling) sibling->dfs();
+      std::cout << std::endl;
+    }
    public:
     Node(const T & val, SharedPtr<Node> fc = SharedPtr<Node>(), SharedPtr<Node> sib = SharedPtr<Node>()) : 
         value(new T(val)), first_child(fc), sibling(sib) {}
@@ -90,10 +98,10 @@ class priority_queue { // pairing heap
     friend class priority_queue;
   };
   SharedPtr<Node> root;
-	size_t size_;
+  size_t size_;
   std::function<bool(const T&, const T&)> cmp;
   priority_queue(SharedPtr<Node> rt) : root(new Node(rt->value, rt->first_child)),
-      size_(0), cmp(Compare()) {} // WARNING: size not accurate
+      size_(1), cmp(Compare()) {} // WARNING: size not accurate, but need to be at least 1.
  public:
   
   /**
@@ -119,11 +127,11 @@ class priority_queue { // pairing heap
    * @return a reference to this priority_queue after assignment
    */
   priority_queue &operator=(const priority_queue &other) {
-		root = other.root.deep_copy();
-		size_ = other.size_;
+    root = other.root.deep_copy();
+    size_ = other.size_;
     cmp = other.cmp;
     return *this;
-	}
+  }
   
   void swap(priority_queue &other) {
     priority_queue tmp = other;
@@ -143,14 +151,19 @@ class priority_queue { // pairing heap
    */
   const T & top() const {
     if (size_ == 0) throw container_is_empty();
-		return *root->value;
-	}
+    return *root->value;
+  }
 
   /**
    * @brief push new element to the priority queue.
    * @param e the element to be pushed
    */
   void push(const T &e) {
+    if (size_ == 0) {
+      size_ = 1;
+      root.reset(new Node(e));
+      return;
+    }
     SharedPtr<Node> new_node = new Node(e);
     if (cmp(e, top())) {
       new_node->sibling = root->first_child;
@@ -188,6 +201,7 @@ class priority_queue { // pairing heap
       arr[i - 2].merge(arr[i]);
     }
     swap(arr[0]);
+    size_ = arr[0].size_ - 1;
   }
 
   /**
@@ -214,16 +228,22 @@ class priority_queue { // pairing heap
       swap(other);
       return;
     }
-    if (cmp(top(), other.top())) {
-      root->sibling = other.root->first_child;
-      other.root->first_child = root;
-      swap(other);
-    } else {
-      other.root->sibling = root->first_child;
-      root->first_child = other.root;
+    {
+      if (cmp(top(), other.top())) {
+        root->sibling = other.root->first_child;
+        other.root->first_child = root;
+        swap(other);
+      } else {
+        other.root->sibling = root->first_child;
+        root->first_child = other.root;
+      }
+      size_ += other.size_;
+      other.clear();
     }
-    size_ += other.size_;
-    other.clear();
+  }
+  void dfs() const {
+    std::cout << "size:" <<  size_ << std::endl;
+    root->dfs();
   }
 };
 
