@@ -69,6 +69,7 @@ class SharedPtr {
   ~SharedPtr() { reset(); }
 };
 
+/* NOT NEEDED WITH RECURSION 
 template<class T>
 class UniqueArray {
  private:
@@ -84,6 +85,7 @@ class UniqueArray {
     return arr[x];
   }
 };
+*/
 
 /**
  * @brief a container like std::priority_queue which is a heap internal.
@@ -106,13 +108,22 @@ class priority_queue { // pairing heap
     Node(const Node &other) : value(other.value.deep_copy()),
         first_child(other.first_child.deep_copy()), sibling(other.sibling.deep_copy()) {}
     Node& operator = (const Node &) = delete;
-    ~Node() {}
+    priority_queue meld() const {
+      priority_queue ret(*this);
+      if (sibling) {
+        ret.merge(priority_queue(*sibling));
+        if (sibling->sibling) {
+          ret.merge(sibling->sibling->meld());
+        }
+      }
+      return ret;
+    }
     friend class priority_queue;
   };
   SharedPtr<Node> root;
   size_t size_;
   std::function<bool(const T&, const T&)> cmp;
-  priority_queue(SharedPtr<Node> rt) : root(new Node(rt->value, rt->first_child)),
+  priority_queue(const Node &rt) : root(new Node(rt.value, rt.first_child)),
       size_(1), cmp(Compare()) {} // WARNING: size not accurate, but need to be at least 1.
  public:
   
@@ -187,7 +198,7 @@ class priority_queue { // pairing heap
       return;
     }
     SharedPtr<Node> new_node = new Node(e);
-    if (cmp(e, top())) {
+    if (cmp(e, *root->value)) {
       new_node->sibling = root->first_child;
       root->first_child = new_node;
     } else {
@@ -203,27 +214,13 @@ class priority_queue { // pairing heap
    */
   void pop() {
     if (size_ == 0) throw container_is_empty();
-    size_t child_cnt = 0;
-    for (SharedPtr p = root->first_child; p; p = p->sibling) {
-      child_cnt++;
-    }
-    if (child_cnt == 0) {
+    if (!root->first_child) {
       clear();
       return;
     }
-    UniqueArray<priority_queue> arr(child_cnt);
-    size_t i = 0;
-    for (SharedPtr p = root->first_child; p; p = p->sibling) {
-      arr[i++] = p;
-    }
-    for (i = 0; i + 1 < child_cnt; i += 2) {
-      arr[i].merge(arr[i + 1]);
-    }
-    for (i >= child_cnt ? i -= 2 : i; i >= 2; i -= 2) {
-      arr[i - 2].merge(arr[i]);
-    }
-    swap(arr[0]);
-    size_ = arr[0].size_ - 1;
+    size_t tsize = size_;
+    root->first_child->meld().swap(*this);
+    size_ = tsize - 1;
   }
 
   /**
@@ -251,18 +248,34 @@ class priority_queue { // pairing heap
       swap(other);
       return;
     }
-    {
-      if (cmp(top(), other.top())) {
-        root->sibling = other.root->first_child;
-        other.root->first_child = root;
-        swap(other);
-      } else {
-        other.root->sibling = root->first_child;
-        root->first_child = other.root;
-      }
-      size_ += other.size_;
-      other.clear();
+    if (cmp(*root->value, *other.root->value)) {
+      root->sibling = other.root->first_child;
+      other.root->first_child = root;
+      swap(other);
+    } else {
+      other.root->sibling = root->first_child;
+      root->first_child = other.root;
     }
+    size_ += other.size_;
+    other.clear();
+  }
+  void merge(priority_queue &&other) {
+    if (&other == this) return;
+    if (other.empty()) return;
+    if (empty()) {
+      swap(other);
+      return;
+    }
+    if (cmp(*root->value, *other.root->value)) {
+      root->sibling = other.root->first_child;
+      other.root->first_child = root;
+      swap(other);
+    } else {
+      other.root->sibling = root->first_child;
+      root->first_child = other.root;
+    }
+    size_ += other.size_;
+    other.clear();
   }
 };
 
