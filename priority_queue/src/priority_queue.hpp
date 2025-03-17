@@ -1,7 +1,6 @@
 #ifndef SJTU_PRIORITY_QUEUE_HPP
 #define SJTU_PRIORITY_QUEUE_HPP
 
-#include <iostream>
 #include <cstddef>
 #include <functional>
 #include "exceptions.hpp"
@@ -99,13 +98,6 @@ class priority_queue { // pairing heap
     SharedPtr<const T> value;
     SharedPtr<Node> first_child;
     SharedPtr<Node> sibling;
-    void dfs() const {
-      std::cout << *value << "\nfc:" << std::endl;
-      if (first_child) first_child->dfs();
-      std::cout << "sibling:" << std::endl;
-      if (sibling) sibling->dfs();
-      std::cout << std::endl;
-    }
    public:
     Node(const T & val, SharedPtr<Node> fc = SharedPtr<Node>(), SharedPtr<Node> sib = SharedPtr<Node>()) : 
         value(new T(val)), first_child(fc), sibling(sib) {}
@@ -114,6 +106,7 @@ class priority_queue { // pairing heap
     Node(const Node &other) : value(other.value.deep_copy()),
         first_child(other.first_child.deep_copy()), sibling(other.sibling.deep_copy()) {}
     Node& operator = (const Node &) = delete;
+    ~Node() {}
     friend class priority_queue;
   };
   SharedPtr<Node> root;
@@ -270,10 +263,6 @@ class priority_queue { // pairing heap
       size_ += other.size_;
       other.clear();
     }
-  }
-  void dfs() const {
-    std::cout << "size:" <<  size_ << std::endl;
-    root->dfs();
   }
 };
 
