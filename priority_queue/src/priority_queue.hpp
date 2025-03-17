@@ -27,6 +27,15 @@ class SharedPtr {
     if (cnt != nullptr) ++*cnt;
     return *this;
   }
+  SharedPtr &operator=(SharedPtr &&other) {
+    if (&other == this) return *this;
+    this->reset();
+    get = other.get;
+    cnt = other.cnt;
+    other.get = nullptr;
+    other.cnt = nullptr;
+    return *this;
+  }
   void reset(T *ptr) {
     *this = SharedPtr(ptr);
   }
@@ -41,6 +50,15 @@ class SharedPtr {
   SharedPtr deep_copy() const {
     if (get != nullptr) return SharedPtr(new T(*get));
     else return {};
+  }
+  void swap(SharedPtr &other) {
+    if (&other == this) return;
+    auto tget = get;
+    auto tcnt = cnt;
+    get = other.get;
+    cnt = other.cnt;
+    other.get = tget;
+    other.cnt = tcnt;
   }
   explicit operator bool() const {
     return get != nullptr;
@@ -95,6 +113,7 @@ class priority_queue { // pairing heap
         value(val), first_child(fc), sibling(sib) {}
     Node(const Node &other) : value(other.value.deep_copy()),
         first_child(other.first_child.deep_copy()), sibling(other.sibling.deep_copy()) {}
+    Node& operator = (const Node &) = delete;
     friend class priority_queue;
   };
   SharedPtr<Node> root;
@@ -127,16 +146,26 @@ class priority_queue { // pairing heap
    * @return a reference to this priority_queue after assignment
    */
   priority_queue &operator=(const priority_queue &other) {
+    if (&other == this) return *this;
     root = other.root.deep_copy();
     size_ = other.size_;
     cmp = other.cmp;
     return *this;
   }
-  
+  priority_queue &operator=(priority_queue &&other) {
+    if (&other == this) return *this;
+    root = std::move(other.root);
+    size_ = other.size_;
+    other.size_ = 0;
+    return *this;
+  }
+
   void swap(priority_queue &other) {
-    priority_queue tmp = other;
-    other = *this;
-    *this = tmp;
+    if (&other == this) return;
+    root.swap(other.root);
+    auto tsize = size_;
+    size_ = other.size_;
+    other.size_ = tsize;
   }
   
   void clear() {
@@ -223,6 +252,7 @@ class priority_queue { // pairing heap
    * @param other the priority_queue to be merged.
    */
   void merge(priority_queue &other) {
+    if (&other == this) return;
     if (other.empty()) return;
     if (empty()) {
       swap(other);
