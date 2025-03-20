@@ -5,22 +5,53 @@
 #include <functional>
 #include "exceptions.hpp"
 
+#undef __VERBOSE__
+#undef __MYTEST__
+
+#ifdef __VERBOSE__
+#include <iostream>
+#endif
+
+#ifdef __MYTEST__
+
+#include <memory>
+
+template <typename T>
+class SharedPtr : public std::shared_ptr<T> {
+ public:
+  using std::shared_ptr<T>::shared_ptr;
+  SharedPtr deep_copy() const {
+    if (*this) return SharedPtr(new T(**this));
+    else return {};
+  }
+};
+
+#endif
+
 namespace sjtu {
 
+#ifndef __MYTEST__ 
 template<class T>
 class SharedPtr {
  private:
   T *get;
   size_t *cnt;
  public:
-  SharedPtr() : get(nullptr), cnt(nullptr) {}
+  SharedPtr(std::nullptr_t x = nullptr) : get(nullptr), cnt(nullptr) {}
   SharedPtr(T *ptr) : get(ptr), cnt(new size_t{1}) {}
   SharedPtr(const SharedPtr &other) : get(other.get), cnt(other.cnt) {
     if (cnt) ++*cnt;
   }
+  SharedPtr(SharedPtr &&other) : get(other.get), cnt(other.cnt) {
+    other.get = nullptr;
+    other.cnt = nullptr;
+  }
   SharedPtr &operator=(const SharedPtr &other) {
     if (&other == this) return *this;
-    this->reset();
+    if (cnt && --*cnt == 0) {
+      delete cnt;
+      delete get;
+    }
     get = other.get;
     cnt = other.cnt;
     if (cnt != nullptr) ++*cnt;
@@ -28,7 +59,10 @@ class SharedPtr {
   }
   SharedPtr &operator=(SharedPtr &&other) {
     if (&other == this) return *this;
-    this->reset();
+    if (cnt && --*cnt == 0) {
+      delete cnt;
+      delete get;
+    }
     get = other.get;
     cnt = other.cnt;
     other.get = nullptr;
@@ -36,7 +70,12 @@ class SharedPtr {
     return *this;
   }
   void reset(T *ptr) {
-    *this = SharedPtr(ptr);
+    if (cnt && --*cnt == 0) {
+      delete cnt;
+      delete get;
+    }
+    get = ptr;
+    cnt = new size_t{1};
   }
   void reset() {
     if (cnt && --*cnt == 0) {
@@ -45,6 +84,9 @@ class SharedPtr {
     }
     cnt = nullptr;
     get = nullptr;
+    #ifdef __VERBOSE__
+    std::cout << "RE" << std::endl;
+    #endif
   }
   SharedPtr deep_copy() const {
     if (get != nullptr) return SharedPtr(new T(*get));
@@ -66,8 +108,15 @@ class SharedPtr {
   T& operator*() { return *get; }
   const T* operator->() const { return get; }
   T* operator->() { return get; }
-  ~SharedPtr() { reset(); }
+  ~SharedPtr() {
+    if (cnt && --*cnt == 0) {
+      delete cnt;
+      delete get;
+    }
+  }
 };
+
+#endif
 
 /* NOT NEEDED WITH RECURSION 
 template<class T>
@@ -106,9 +155,16 @@ class priority_queue { // pairing heap
     Node(SharedPtr<const T> val, SharedPtr<Node> fc = SharedPtr<Node>(), SharedPtr<Node> sib = SharedPtr<Node>()) : 
         value(val), first_child(fc), sibling(sib) {}
     Node(const Node &other) : value(other.value.deep_copy()),
-        first_child(other.first_child.deep_copy()), sibling(other.sibling.deep_copy()) {}
+        first_child(other.first_child.deep_copy()), sibling(other.sibling.deep_copy()) {
+          #ifdef __VERBOSE__
+          std::cout << "DEEP COPYING" << std::endl;
+          #endif
+        }
     Node& operator = (const Node &) = delete;
     priority_queue meld() const {
+      #ifdef __VERBOSE__
+      // std::cout << "MELDING, this = " << *this->value << std::endl;
+      #endif
       priority_queue ret(*this);
       if (sibling) {
         ret.merge(priority_queue(*sibling));
@@ -138,7 +194,10 @@ class priority_queue { // pairing heap
    */
   priority_queue(const priority_queue &other) : 
       root(other.root.deep_copy()), size_(other.size_), cmp(other.cmp) {}
-
+  priority_queue(priority_queue &&other) : 
+      root{}, size_(other.size_), cmp(other.cmp) {
+    root.swap(other.root);
+  }
   /**
    * @brief deconstructor
    */
@@ -197,7 +256,7 @@ class priority_queue { // pairing heap
       root.reset(new Node(e));
       return;
     }
-    SharedPtr<Node> new_node = new Node(e);
+    SharedPtr<Node> new_node(new Node(e));
     if (cmp(e, *root->value)) {
       new_node->sibling = root->first_child;
       root->first_child = new_node;
