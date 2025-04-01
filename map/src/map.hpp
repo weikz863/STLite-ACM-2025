@@ -49,30 +49,32 @@ template<
     void rotate_right() {
       if (!left) throw sjtu::my_runtime_error("right rotation failed");
       Node *tmp_left = left;
+      Node *tmp_parent = parent;
       set_left(this, tmp_left->right);
       set_right(tmp_left, this);
-      if (parent) {
-        if (parent->left == *this) {
-          parent->set_left(tmp_left);
-        } else if (parent->right == *this) {
-          parent->set_right(tmp_left);
+      if (tmp_parent) {
+        if (tmp_parent->left == this) {
+          set_left(tmp_parent, tmp_left);
+        } else if (tmp_parent->right == this) {
+          set_right(tmp_parent, tmp_left);
         } else {
-          throw sjtu::my_runtime_error("father-son relationship broken");
+          throw sjtu::my_runtime_error("parent-child relationship broken");
         }
       }
     }
     void rotate_left() {
       if (!right) throw sjtu::my_runtime_error("left rotation failed");
       Node *tmp_right = right;
+      Node *tmp_parent = parent;
       set_right(this, tmp_right->left);
       set_left(tmp_right, this);
-      if (parent) {
-        if (parent->left == *this) {
-          parent->set_left(tmp_right);
-        } else if (parent->right == *this) {
-          parent->set_right(tmp_right);
+      if (tmp_parent) {
+        if (tmp_parent->left == this) {
+          set_left(tmp_parent, tmp_right);
+        } else if (tmp_parent->right == this) {
+          set_right(tmp_parent, tmp_right);
         } else {
-          throw sjtu::my_runtime_error("father-son relationship broken");
+          throw sjtu::my_runtime_error("parent-child relationship broken");
         }
       }
     }
@@ -80,15 +82,15 @@ template<
   static inline bool is_black(const Node *ptr) {
     return !ptr || ptr->is_black;
   }
-  static inline void set_left(Node *parent, Node *son) {
+  static inline void set_left(Node *parent, Node *child) {
     if (!parent) throw sjtu::my_runtime_error("set_left failed");
-    parent->left = son;
-    if (son) son->parent = parent;
+    parent->left = child;
+    if (child) child->parent = parent;
   }
-  static inline void set_right(Node *parent, Node *son) {
+  static inline void set_right(Node *parent, Node *child) {
     if (!parent) throw sjtu::my_runtime_error("set_right failed");
-    parent->right = son;
-    if (son) son->parent = parent;
+    parent->right = child;
+    if (child) child->parent = parent;
   }
   static Node *deep_copy(Node *ptr, Node *pa) {
     if (!pa) throw sjtu::my_runtime_error("deep copy with no parent");
@@ -99,7 +101,7 @@ template<
     ret->is_black = ptr->is_black;
     if (!ptr->info) throw sjtu::my_runtime_error("deep copying virtual node");
     ret->info = new value_type(*ptr->info);
-    return ptr;
+    return ret;
   }
   static Node *next(Node *ptr) {
     if (!ptr) throw sjtu::my_runtime_error("empty ptr for next");
@@ -129,17 +131,18 @@ template<
       }
       ptr = ptr->parent;
     }
+    return ptr;
   }
-  Node *try_find(Node *ptr, const Key &key) {
+  Node *try_find(Node *ptr, const Key &key) const {
     if (!ptr) throw sjtu::my_runtime_error("empty ptr for try_find");
     while (true) {
-      if (cmp(ptr->info.first, key)) {
+      if (cmp(ptr->info->first, key)) {
         if (ptr->right) {
           ptr = ptr->right;
         } else {
           return ptr->right = new Node(ptr);
         }
-      } else if (cmp(key, ptr->info.first)) {
+      } else if (cmp(key, ptr->info->first)) {
         if (ptr->left) {
           ptr = ptr->left;
         } else {
@@ -277,6 +280,7 @@ template<
   }
 
   map &operator=(const map &other) {
+    if (&other == this) return *this;
     size_ = other.size_;
     delete root->left;
     root->left = deep_copy(other.root->left, root);
@@ -295,9 +299,47 @@ template<
    * Returns a reference to the mapped value of the element with key equivalent to key.
    * If no such element exists, an exception of type `index_out_of_bound'
    */
-  T &at(const Key &key) {}
+  T &at(const Key &key) {
+    if (!root->left) {
+      throw sjtu::index_out_of_bound();
+    }
+    auto ptr = try_find(root->left, key);
+    if (ptr->info) {
+      return ptr->info->second;
+    } else {
+      if (ptr->parent->left == ptr) {
+        delete ptr->parent->left;
+        ptr->parent->left = nullptr;
+      } else if (ptr->parent->right == ptr) {
+        delete ptr->parent->right;
+        ptr->parent->right = nullptr;
+      } else {
+        throw sjtu::my_runtime_error("broken tree structure in find");
+      }
+      throw sjtu::index_out_of_bound();
+    }
+  }
 
-  const T &at(const Key &key) const {}
+  const T &at(const Key &key) const {
+    if (!root->left) {
+      throw sjtu::index_out_of_bound();
+    }
+    auto ptr = try_find(root->left, key);
+    if (ptr->info) {
+      return ptr->info->second;
+    } else {
+      if (ptr->parent->left == ptr) {
+        delete ptr->parent->left;
+        ptr->parent->left = nullptr;
+      } else if (ptr->parent->right == ptr) {
+        delete ptr->parent->right;
+        ptr->parent->right = nullptr;
+      } else {
+        throw sjtu::my_runtime_error("broken tree structure in find");
+      }
+      throw sjtu::index_out_of_bound();
+    }
+  }
 
   /**
    * TODO
@@ -306,12 +348,48 @@ template<
    *   performing an insertion if such key does not already exist.
    */
   T &operator[](const Key &key) {
+    if (!root->left) {
+      root->left = new Node(root, nullptr, nullptr, true);
+      root->left->info = new value_type(key, T());
+      size_++;
+      return root->left->info->second;
+    }
+    auto ptr = try_find(root->left, key);
+    if (ptr->info) {
+      return ptr->info->second;
+    } else {
+      ptr->info = new value_type(key, T());
+      size_++;
+
+      // TODO
+
+      return ptr->info->second;
+    }
   }
 
   /**
    * behave like at() throw index_out_of_bound if such key does not exist.
    */
-  const T &operator[](const Key &key) const {}
+  const T &operator[](const Key &key) const {
+    if (!root->left) {
+      throw sjtu::index_out_of_bound();
+    }
+    auto ptr = try_find(root->left, key);
+    if (ptr->info) {
+      return ptr->info->second;
+    } else {
+      if (ptr->parent->left == ptr) {
+        delete ptr->parent->left;
+        ptr->parent->left = nullptr;
+      } else if (ptr->parent->right == ptr) {
+        delete ptr->parent->right;
+        ptr->parent->right = nullptr;
+      } else {
+        throw sjtu::my_runtime_error("broken tree structure in find");
+      }
+      throw sjtu::index_out_of_bound();
+    }
+  }
 
   iterator begin() { return next(root); }
   const_iterator cbegin() const { return next(root); }
@@ -333,14 +411,97 @@ template<
    *   the iterator to the new element (or the element that prevented the insertion),
    *   the second one is true if insert successfully, or false.
    */
-  pair<iterator, bool> insert(const value_type &value) {}
+  pair<iterator, bool> insert(const value_type &value) {
+    if (!root->left) {
+      root->left = new Node(root, nullptr, nullptr, true);
+      root->left->info = new value_type(value);
+      size_++;
+      return {iterator(root->left), true};
+    }
+    auto ptr = try_find(root->left, value.first);
+    if (ptr->info) {
+      return {iterator(ptr), false};
+    } else {
+      ptr->info = new value_type(value);
+      size_++;
+
+      // TODO
+
+      return {iterator(ptr), true};
+    }
+  }
 
   /**
    * erase the element at pos.
    *
    * throw if pos pointed to a bad element (pos == this->end() || pos points an element out of this)
    */
-  void erase(iterator pos) {}
+  void erase(iterator pos) {
+    Node *ptr = pos.ptr;
+    if (ptr == ptr->parent) throw sjtu::invalid_iterator();
+    while (ptr != ptr->parent) ptr = ptr->parent;
+    if (ptr != root) throw sjtu::invalid_iterator();
+    size_--;
+    ptr = pos.ptr;
+    if (ptr->left != nullptr && ptr->right != nullptr) {
+      Node *nextptr = next(ptr);
+      std::swap(ptr->info, nextptr->info);
+      ptr = nextptr;
+    }
+    if (!ptr->left && ptr->right) {
+      ptr->rotate_left();
+      if (ptr->right) {
+        // throw sjtu::my_runtime_error("red-black structure broken found in erase");
+        ptr->parent->left = ptr->right;
+        ptr->right->parent = ptr->parent;
+        ptr->right = nullptr;
+        delete ptr;
+        return;
+      }
+      ptr->parent->left = nullptr;
+      // if (ptr->parent->is_black) throw sjtu::my_runtime_error("red-black structure broken found in erase");
+      ptr->parent->is_black = true;
+      delete ptr;
+      return;
+    }
+    if (!ptr->right && ptr->left) {
+      ptr->rotate_right();
+      if (ptr->left) {
+        // throw sjtu::my_runtime_error("red-black structure broken found in erase");
+        ptr->parent->right = ptr->left;
+        ptr->left->parent = ptr->parent;
+        ptr->left = nullptr;
+        delete ptr;
+        return;
+      }
+      ptr->parent->right = nullptr;
+      // if (ptr->parent->is_black) throw sjtu::my_runtime_error("red-black structure broken found in erase");
+      ptr->parent->is_black = true;
+      delete ptr;
+      return;
+    }
+    if (!ptr->left && !ptr->right) {
+      if (ptr == ptr->parent->left) {
+        bool black = ptr->is_black;
+        ptr = ptr->parent;
+        delete ptr->left;
+        ptr->left = nullptr;
+
+        //TODO
+
+      } else if (ptr == ptr->parent->right) {
+        bool black = ptr->is_black;
+        ptr = ptr->parent;
+        delete ptr->right;
+        ptr->right = nullptr;
+
+        //TODO
+
+      }
+    } else {
+      throw sjtu::my_runtime_error("broken tree structure in erase");
+    }
+  }
 
   /**
    * Returns the number of elements with key
@@ -349,7 +510,24 @@ template<
    *     since this container does not allow duplicates.
    * The default method of check the equivalence is !(a < b || b > a)
    */
-  size_t count(const Key &key) const {}
+  size_t count(const Key &key) const {
+    if (!root->left) return 0;
+    auto ptr = try_find(root->left, key);
+    if (ptr->info) {
+      return 1;
+    } else {
+      if (ptr->parent->left == ptr) {
+        delete ptr->parent->left;
+        ptr->parent->left = nullptr;
+      } else if (ptr->parent->right == ptr) {
+        delete ptr->parent->right;
+        ptr->parent->right = nullptr;
+      } else {
+        throw sjtu::my_runtime_error("broken tree structure in find");
+      }
+      return 0;
+    }
+  }
 
   /**
    * Finds an element with key equivalent to key.
@@ -357,9 +535,43 @@ template<
    * Iterator to an element with key equivalent to key.
    *   If no such element is found, past-the-end (see end()) iterator is returned.
    */
-  iterator find(const Key &key) {}
+  iterator find(const Key &key) {
+    if (!root->left) return root;
+    auto ptr = try_find(root->left, key);
+    if (ptr->info) {
+      return ptr;
+    } else {
+      if (ptr->parent->left == ptr) {
+        delete ptr->parent->left;
+        ptr->parent->left = nullptr;
+      } else if (ptr->parent->right == ptr) {
+        delete ptr->parent->right;
+        ptr->parent->right = nullptr;
+      } else {
+        throw sjtu::my_runtime_error("broken tree structure in find");
+      }
+      return root;
+    }
+  }
 
-  const_iterator find(const Key &key) const {}
+  const_iterator find(const Key &key) const {
+    if (!root->left) return root;
+    auto ptr = try_find(root->left, key);
+    if (ptr->info) {
+      return ptr;
+    } else {
+      if (ptr->parent->left == ptr) {
+        delete ptr->parent->left;
+        ptr->parent->left = nullptr;
+      } else if (ptr->parent->right == ptr) {
+        delete ptr->parent->right;
+        ptr->parent->right = nullptr;
+      } else {
+        throw sjtu::my_runtime_error("broken tree structure in find");
+      }
+      return root;
+    }
+  }
 };
 
 }
