@@ -17,6 +17,117 @@ template<
     class T,
     class Compare = std::less <Key>
 > class map {
+ private:
+  struct Node {
+    Node *parent, *left, *right;
+    bool is_black;
+    Key *key;
+    T *value;
+    Node(Node *pa, Node *l = nullptr, Node *r = nullptr, bool isblack = false) :
+        parent(pa), left(l), right(r), is_black(isblack), key(nullptr), value(nullptr) {}
+    Node() = delete;
+    Node(const Node &other) = delete;
+    ~Node() {
+      delete key;
+      delete value;
+    }
+    Node& operator = (const Node &other) = delete;
+    void rotate_right() {
+      if (!left) throw sjtu::runtime_error("right rotation failed");
+      Node *tmp_left = left;
+      set_left(this, tmp_left->right);
+      set_right(tmp_left, this);
+      if (parent) {
+        if (parent->left == *this) {
+          parent->set_left(tmp_left);
+        } else if (parent->right == *this) {
+          parent->set_right(tmp_left);
+        } else {
+          throw sjtu::runtime_error("father-son relationship broken");
+        }
+      }
+    }
+    void rotate_left() {
+      if (!right) throw sjtu::runtime_error("left rotation failed");
+      Node *tmp_right = right;
+      set_right(this, tmp_right->left);
+      set_left(tmp_right, this);
+      if (parent) {
+        if (parent->left == *this) {
+          parent->set_left(tmp_right);
+        } else if (parent->right == *this) {
+          parent->set_right(tmp_right);
+        } else {
+          throw sjtu::runtime_error("father-son relationship broken");
+        }
+      }
+    }
+  };
+  inline bool is_black(const Node *ptr) {
+    return !ptr || ptr->is_black;
+  }
+  inline void set_left(Node *parent, Node *son) {
+    if (!parent) throw sjtu::runtime_error("set_left failed");
+    parent->left = son;
+    if (son) son->parent = parent;
+  }
+  inline void set_right(Node *parent, Node *son) {
+    if (!parent) throw sjtu::runtime_error("set_right failed");
+    parent->right = son;
+    if (son) son->parent = parent;
+  }
+  Node *next(Node *ptr) {
+    if (!ptr) throw sjtu::runtime_error("empty ptr for next");
+    if (ptr->right) {
+      ptr = ptr->right;
+      while (ptr->left) {
+        ptr = ptr->left;
+      }
+    } else {
+      while (ptr != ptr->parent->left) {
+        ptr = ptr->parent;
+      }
+      ptr = ptr->parent;
+    }
+    return ptr;
+  }
+  Node *prev(Node *ptr) {
+    if (!ptr) throw sjtu::runtime_error("empty ptr for prev");
+    if (ptr->left) {
+      ptr = ptr->left;
+      while (ptr->right) {
+        ptr = ptr->right;
+      }
+    } else {
+      while (ptr != ptr->parent->right) {
+        ptr = ptr->parent;
+      }
+      ptr = ptr->parent;
+    }
+  }
+  Node *lower_bound(Node *ptr, const Key *key) {
+    if (!ptr || !key) throw sjtu::runtime_error("empty ptr for lower_bound");
+    while (true) {
+      if (cmp(ptr->key, key)) {
+        if (ptr->right) {
+          ptr = ptr->right;
+        } else {
+          return ptr->right = new Node(ptr);
+        }
+      } else if (cmp(key, ptr->key)) {
+        if (ptr->left) {
+          ptr = ptr->left;
+        } else {
+          return ptr->left = new Node(ptr);
+        }
+      } else {
+        return ptr;
+      }
+    }
+  }
+  Node *root;
+  size_t size_;
+  Compare cmp;
  public:
   /**
    * the internal type of data.
@@ -145,7 +256,8 @@ template<
    * Returns a reference to the value that is mapped to a key equivalent to key,
    *   performing an insertion if such key does not already exist.
    */
-  T &operator[](const Key &key) {}
+  T &operator[](const Key &key) {
+  }
 
   /**
    * behave like at() throw index_out_of_bound if such key does not exist.
