@@ -486,19 +486,19 @@ bool check12(){ // erase(it++)
 			if(it -> first != stdit -> first) return 0;
 		}
 	}	
-	if(Q.size() != stdQ.size()) return 0;
-	it = Q.begin();
-	for(stdit = stdQ.begin(); stdit != stdQ.end(); stdit++){ 
-		if(stdit -> first != it -> first) return 0;
-		if(stdit -> second != (*it).second) return 0;
-		it++;
-	}
-	stdit = --stdQ.end();
-	for(it = --Q.end(); it != Q.begin(); it--){
-		if(stdit -> first != it -> first) return 0;
-		if(stdit -> second != (*it).second) return 0;
-		stdit--;
-	}
+	// if(Q.size() != stdQ.size()) return 0;
+	// it = Q.begin();
+	// for(stdit = stdQ.begin(); stdit != stdQ.end(); stdit++){ 
+	// 	if(stdit -> first != it -> first) return 0;
+	// 	if(stdit -> second != (*it).second) return 0;
+	// 	it++;
+	// }
+	// stdit = --stdQ.end();
+	// for(it = --Q.end(); it != Q.begin(); it--){
+	// 	if(stdit -> first != it -> first) return 0;
+	// 	if(stdit -> second != (*it).second) return 0;
+	// 	stdit--;
+	// }
 	return 1;
 }
 

@@ -36,9 +36,10 @@ template<
     Node *parent, *left, *right;
     bool is_black;
     value_type *info;
-    Node(Node *pa, Node *l = nullptr, Node *r = nullptr, bool isblack = false) :
-        parent(pa), left(l), right(r), is_black(isblack), info(nullptr) {}
-    Node() = delete;
+    Node(Node *pa = nullptr, Node *l = nullptr, Node *r = nullptr, bool isblack = false) :
+        parent(pa), left(l), right(r), is_black(isblack), info(nullptr) {
+      if (!pa) parent = right = this;
+    }
     Node(const Node &other) = delete;
     ~Node() {
       delete info;
@@ -48,49 +49,43 @@ template<
     Node& operator = (const Node &other) = delete;
     void rotate_right() {
       if (!left) throw sjtu::my_runtime_error("right rotation failed");
-      Node *tmp_left = left;
-      Node *tmp_parent = parent;
-      set_left(this, tmp_left->right);
-      set_right(tmp_left, this);
-      if (tmp_parent) {
-        if (tmp_parent->left == this) {
-          set_left(tmp_parent, tmp_left);
-        } else if (tmp_parent->right == this) {
-          set_right(tmp_parent, tmp_left);
-        } else {
-          throw sjtu::my_runtime_error("parent-child relationship broken");
-        }
+      if (parent == this) throw sjtu::my_runtime_error("trying to right rotate root");
+      Node *tmp_left = this->left;
+      Node *tmp_parent = this->parent;
+      if (tmp_parent->left == this) {
+        tmp_parent->left = tmp_left;
+      } else if (tmp_parent->right == this) {
+        tmp_parent->right = tmp_left;
+      } else {
+        throw sjtu::my_runtime_error("parent-child relationship broken");
       }
+      tmp_left->parent = tmp_parent;
+      this->left = tmp_left->right;
+      if (tmp_left->right) tmp_left->right->parent = this;
+      this->parent = tmp_left;
+      tmp_left->right = this;
     }
     void rotate_left() {
       if (!right) throw sjtu::my_runtime_error("left rotation failed");
-      Node *tmp_right = right;
-      Node *tmp_parent = parent;
-      set_right(this, tmp_right->left);
-      set_left(tmp_right, this);
-      if (tmp_parent) {
-        if (tmp_parent->left == this) {
-          set_left(tmp_parent, tmp_right);
-        } else if (tmp_parent->right == this) {
-          set_right(tmp_parent, tmp_right);
-        } else {
-          throw sjtu::my_runtime_error("parent-child relationship broken");
-        }
+      if (parent == this) throw sjtu::my_runtime_error("trying to left rotate root");
+      Node *tmp_right = this->right;
+      Node *tmp_parent = this->parent;
+      if (tmp_parent->left == this) {
+        tmp_parent->left = tmp_right;
+      } else if (tmp_parent->right == this) {
+        tmp_parent->right = tmp_right;
+      } else {
+        throw sjtu::my_runtime_error("parent-child relationship broken");
       }
+      tmp_right->parent = tmp_parent;
+      this->right = tmp_right->left;
+      if (tmp_right->left) tmp_right->left->parent = this;
+      this->parent = tmp_right;
+      tmp_right->left = this;
     }
   };
   static inline bool is_black(const Node *ptr) {
     return !ptr || ptr->is_black;
-  }
-  static inline void set_left(Node *parent, Node *child) {
-    if (!parent) throw sjtu::my_runtime_error("set_left failed");
-    parent->left = child;
-    if (child) child->parent = parent;
-  }
-  static inline void set_right(Node *parent, Node *child) {
-    if (!parent) throw sjtu::my_runtime_error("set_right failed");
-    parent->right = child;
-    if (child) child->parent = parent;
   }
   static Node *deep_copy(Node *ptr, Node *pa) {
     if (!pa) throw sjtu::my_runtime_error("deep copy with no parent");
@@ -270,13 +265,12 @@ template<
   };
 
   map() : size_(0), cmp{} {
-    root = static_cast<Node*>(::operator new(sizeof(Node)));
-    ::new(root) Node(root, nullptr, root);
+    root = new Node();
   }
 
   map(const map &other) : size_(other.size_), cmp{} {
-    root = static_cast<Node*>(::operator new(sizeof(Node)));
-    ::new(root) Node(root, deep_copy(other.root->left, root), root);
+    root = new Node();
+    root->left = deep_copy(other.root->left, root);
   }
 
   map &operator=(const map &other) {
@@ -289,8 +283,7 @@ template<
 
   ~map() {
     root->right = nullptr;
-    root->~Node();
-    ::operator delete(root);
+    delete root;
   }
 
   /**
@@ -308,11 +301,11 @@ template<
       return ptr->info->second;
     } else {
       if (ptr->parent->left == ptr) {
-        delete ptr->parent->left;
         ptr->parent->left = nullptr;
+        delete ptr;
       } else if (ptr->parent->right == ptr) {
-        delete ptr->parent->right;
         ptr->parent->right = nullptr;
+        delete ptr;
       } else {
         throw sjtu::my_runtime_error("broken tree structure in find");
       }
@@ -329,11 +322,11 @@ template<
       return ptr->info->second;
     } else {
       if (ptr->parent->left == ptr) {
-        delete ptr->parent->left;
         ptr->parent->left = nullptr;
+        delete ptr;
       } else if (ptr->parent->right == ptr) {
-        delete ptr->parent->right;
         ptr->parent->right = nullptr;
+        delete ptr;
       } else {
         throw sjtu::my_runtime_error("broken tree structure in find");
       }
@@ -379,11 +372,11 @@ template<
       return ptr->info->second;
     } else {
       if (ptr->parent->left == ptr) {
-        delete ptr->parent->left;
         ptr->parent->left = nullptr;
+        delete ptr;
       } else if (ptr->parent->right == ptr) {
-        delete ptr->parent->right;
         ptr->parent->right = nullptr;
+        delete ptr;
       } else {
         throw sjtu::my_runtime_error("broken tree structure in find");
       }
@@ -445,8 +438,43 @@ template<
     ptr = pos.ptr;
     if (ptr->left != nullptr && ptr->right != nullptr) {
       Node *nextptr = next(ptr);
-      std::swap(ptr->info, nextptr->info);
-      ptr = nextptr;
+      std::swap(ptr->is_black, nextptr->is_black);
+      std::swap(ptr->left, nextptr->left);
+      nextptr->left->parent = nextptr;
+      if (ptr->left) ptr->left->parent = ptr;
+      if (nextptr != ptr->right) {
+        std::swap(ptr->parent, nextptr->parent);
+        std::swap(ptr->right, nextptr->right);
+        nextptr->right->parent = nextptr;
+        if (ptr->right) ptr->right->parent = ptr;
+        if (ptr == nextptr->parent->left) {
+          nextptr->parent->left = nextptr;
+        } else if (ptr == nextptr->parent->right) {
+          nextptr->parent->right = nextptr;
+        } else {
+          throw sjtu::my_runtime_error("broken tree structure in erase");
+        }
+        if (nextptr == ptr->parent->left) {
+          ptr->parent->left = ptr;
+        } else if (nextptr == ptr->parent->right) {
+          ptr->parent->right = ptr;
+        } else {
+          throw sjtu::my_runtime_error("broken tree structure in erase");
+        }
+        nextptr->parent = ptr->parent;
+        ptr->parent = nextptr;
+        nextptr->right = ptr;
+      } else {
+        ptr->right = nextptr->right;
+        if (nextptr->right) nextptr->right->parent = ptr;
+        if (ptr == ptr->parent->left) {
+          nextptr->parent->left = nextptr;
+        } else if (ptr == nextptr->parent->right) {
+          nextptr->parent->right = nextptr;
+        } else {
+          throw sjtu::my_runtime_error("broken tree structure in erase");
+        }
+      }
     }
     if (!ptr->left && ptr->right) {
       ptr->rotate_left();
@@ -512,16 +540,16 @@ template<
    */
   size_t count(const Key &key) const {
     if (!root->left) return 0;
-    auto ptr = try_find(root->left, key);
+    Node *ptr = try_find(root->left, key);
     if (ptr->info) {
       return 1;
     } else {
       if (ptr->parent->left == ptr) {
-        delete ptr->parent->left;
         ptr->parent->left = nullptr;
+        delete ptr;
       } else if (ptr->parent->right == ptr) {
-        delete ptr->parent->right;
         ptr->parent->right = nullptr;
+        delete ptr;
       } else {
         throw sjtu::my_runtime_error("broken tree structure in find");
       }
@@ -542,11 +570,11 @@ template<
       return ptr;
     } else {
       if (ptr->parent->left == ptr) {
-        delete ptr->parent->left;
         ptr->parent->left = nullptr;
+        delete ptr;
       } else if (ptr->parent->right == ptr) {
-        delete ptr->parent->right;
         ptr->parent->right = nullptr;
+        delete ptr;
       } else {
         throw sjtu::my_runtime_error("broken tree structure in find");
       }
@@ -561,11 +589,11 @@ template<
       return ptr;
     } else {
       if (ptr->parent->left == ptr) {
-        delete ptr->parent->left;
         ptr->parent->left = nullptr;
+        delete ptr;
       } else if (ptr->parent->right == ptr) {
-        delete ptr->parent->right;
         ptr->parent->right = nullptr;
+        delete ptr;
       } else {
         throw sjtu::my_runtime_error("broken tree structure in find");
       }
