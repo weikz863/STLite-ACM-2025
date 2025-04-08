@@ -438,43 +438,30 @@ template<
     ptr = pos.ptr;
     if (ptr->left != nullptr && ptr->right != nullptr) {
       Node *nextptr = next(ptr);
-      std::swap(ptr->is_black, nextptr->is_black);
-      std::swap(ptr->left, nextptr->left);
-      nextptr->left->parent = nextptr;
-      if (ptr->left) ptr->left->parent = ptr;
-      if (nextptr != ptr->right) {
-        std::swap(ptr->parent, nextptr->parent);
-        std::swap(ptr->right, nextptr->right);
-        nextptr->right->parent = nextptr;
-        if (ptr->right) ptr->right->parent = ptr;
-        if (ptr == nextptr->parent->left) {
-          nextptr->parent->left = nextptr;
-        } else if (ptr == nextptr->parent->right) {
-          nextptr->parent->right = nextptr;
-        } else {
-          throw sjtu::my_runtime_error("broken tree structure in erase");
-        }
-        if (nextptr == ptr->parent->left) {
-          ptr->parent->left = ptr;
-        } else if (nextptr == ptr->parent->right) {
-          ptr->parent->right = ptr;
-        } else {
-          throw sjtu::my_runtime_error("broken tree structure in erase");
-        }
-        nextptr->parent = ptr->parent;
-        ptr->parent = nextptr;
-        nextptr->right = ptr;
+      Node *next_parent = nextptr->parent;
+      Node *ptr_parent = ptr->parent;
+      ptr->left->parent = nextptr;
+      ptr->right->parent = nextptr;
+      if (nextptr->left) nextptr->left->parent = ptr;
+      if (nextptr->right) nextptr->right->parent = ptr;
+      if (ptr_parent->left == ptr) {
+        ptr_parent->left = nextptr;
+      } else if (ptr_parent->right == ptr) {
+        ptr_parent->right = nextptr;
       } else {
-        ptr->right = nextptr->right;
-        if (nextptr->right) nextptr->right->parent = ptr;
-        if (ptr == ptr->parent->left) {
-          nextptr->parent->left = nextptr;
-        } else if (ptr == nextptr->parent->right) {
-          nextptr->parent->right = nextptr;
-        } else {
-          throw sjtu::my_runtime_error("broken tree structure in erase");
-        }
+        throw sjtu::my_runtime_error("broken tree structure in erase");
       }
+      if (next_parent->left == nextptr) {
+        next_parent->left = ptr;
+      } else if (next_parent->right == nextptr) {
+        next_parent->right = ptr;
+      } else {
+        throw sjtu::my_runtime_error("broken tree structure in erase");
+      }
+      std::swap(ptr->parent, nextptr->parent);
+      std::swap(ptr->left, nextptr->left);
+      std::swap(ptr->right, nextptr->right);
+      std::swap(ptr->is_black, nextptr->is_black);
     }
     if (!ptr->left && ptr->right) {
       ptr->rotate_left();
