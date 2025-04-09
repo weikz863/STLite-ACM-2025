@@ -19,6 +19,9 @@ class my_runtime_error : public sjtu::exception {
   }
 };
 
+class UnexpectedNull : public sjtu::exception {
+ };
+
 template<
     class Key,
     class T,
@@ -66,7 +69,7 @@ template<
       tmp_left->right = this;
     }
     void rotate_left() {
-      if (!right) throw sjtu::my_runtime_error("left rotation failed");
+      if (!right) throw sjtu::UnexpectedNull();
       if (parent == this) throw sjtu::my_runtime_error("trying to left rotate root");
       Node *tmp_right = this->right;
       Node *tmp_parent = this->parent;
@@ -127,6 +130,129 @@ template<
       ptr = ptr->parent;
     }
     return ptr;
+  }
+  static void red_child(Node *pa, Node *ch) {
+    while (!pa->is_black) {
+      if (pa->parent == pa) {
+        ch->is_black = true;
+        return;
+      }
+      Node *gp = pa->parent;
+      if (gp->parent == gp) {
+        pa->is_black = true;
+        return;
+      }
+      if (gp->left == pa) {
+        if (pa->right == ch) {
+          pa->rotate_left();
+          std::swap(pa, ch);
+        }
+        gp->rotate_right();
+        ch->is_black = true;
+        ch = pa;
+        pa = gp;
+      } else if (gp->right == pa) {
+        if (pa->left == ch) {
+          pa->rotate_right();
+          std::swap(pa, ch);
+        }
+        gp->rotate_left();
+        ch->is_black = true;
+        ch = pa;
+        pa = gp;
+      } else {
+        throw sjtu::my_runtime_error("tree structure broken in red_child");
+      }
+    }
+  }
+  static void rebalance(Node *ptr, bool is_left) {
+    while (ptr->parent != ptr) {
+      if (is_left) {
+        if (ptr->is_black) {
+          if (!ptr->right) {
+            // throw sjtu::my_runtime_error("broken rb in erase");
+            return;
+          }
+          if (ptr->right->is_black) {
+            ptr->rotate_left();
+            if (!ptr->right || ptr->right->is_black) {
+              ptr->is_black = false;
+              ptr = ptr->parent;
+              is_left = (ptr == ptr->parent->left);
+              ptr = ptr->parent;
+            }
+            continue;
+          } else { // ptr is black, left child is double-black; right child is red
+            if (!ptr->right) {
+              // throw sjtu::my_runtime_error("broken rb in erase");
+              return;
+            }
+            ptr->rotate_left();
+            ptr->parent->is_black = true;
+            if (!ptr->right) {
+              // throw sjtu::my_runtime_error("broken rb in erase");
+              return;
+            }
+            ptr->rotate_left();
+            ptr->is_black = false;
+            if (ptr->right && !ptr->right->is_black) {
+              red_child(ptr, ptr->right);
+            }
+          }
+        } else { // ptr is red
+          if (!ptr->right) {
+            // throw sjtu::my_runtime_error("broken rb in erase");
+            return;
+          }
+          ptr->rotate_left();
+          if (ptr->right && !ptr->right->is_black) {
+            red_child(ptr, ptr->right);
+          }
+        }
+      } else { // right child of ptr is double-black
+        if (ptr->is_black) {
+          if (!ptr->left) {
+            // throw sjtu::my_runtime_error("broken rb in erase");
+            return;
+          }
+          if (ptr->left->is_black) {
+            ptr->rotate_right();
+            if (!ptr->left || ptr->left->is_black) {
+              ptr->is_black = false;
+              ptr = ptr->parent;
+              is_left = (ptr == ptr->parent->left);
+              ptr = ptr->parent;
+            }
+            continue;
+          } else {
+            if (!ptr->left) {
+              // throw sjtu::my_runtime_error("broken rb in erase");
+              return;
+            }
+            ptr->rotate_right();
+            ptr->parent->is_black = true;
+            if (!ptr->left) {
+              // throw sjtu::my_runtime_error("broken rb in erase");
+              return;
+            }
+            ptr->rotate_right();
+            ptr->is_black = false;
+            if (ptr->left && !ptr->left->is_black) {
+              red_child(ptr, ptr->left);
+            }
+          }
+        } else {
+          if (!ptr->left) {
+            // throw sjtu::my_runtime_error("broken rb in erase");
+            return;
+          }
+          ptr->rotate_right();
+          if (ptr->left && !ptr->left->is_black) {
+            red_child(ptr, ptr->left);
+          }
+        }
+      }
+    }
   }
   Node *try_find(Node *ptr, const Key &key) const {
     if (!ptr) throw sjtu::my_runtime_error("empty ptr for try_find");
@@ -287,7 +413,6 @@ template<
   }
 
   /**
-   * TODO
    * access specified element with bounds checking
    * Returns a reference to the mapped value of the element with key equivalent to key.
    * If no such element exists, an exception of type `index_out_of_bound'
@@ -335,7 +460,6 @@ template<
   }
 
   /**
-   * TODO
    * access specified element
    * Returns a reference to the value that is mapped to a key equivalent to key,
    *   performing an insertion if such key does not already exist.
@@ -353,9 +477,7 @@ template<
     } else {
       ptr->info = new value_type(key, T());
       size_++;
-
-      // TODO
-
+      if (!ptr->parent->is_black) red_child(ptr->parent, ptr);
       return ptr->info->second;
     }
   }
@@ -417,9 +539,7 @@ template<
     } else {
       ptr->info = new value_type(value);
       size_++;
-
-      // TODO
-
+      if (!ptr->parent->is_black) red_child(ptr->parent, ptr);
       return {iterator(ptr), true};
     }
   }
@@ -501,17 +621,14 @@ template<
         ptr = ptr->parent;
         delete ptr->left;
         ptr->left = nullptr;
-
-        //TODO
-
+        if (ptr == root) return;
+        if (black) rebalance(ptr, true);
       } else if (ptr == ptr->parent->right) {
         bool black = ptr->is_black;
         ptr = ptr->parent;
         delete ptr->right;
         ptr->right = nullptr;
-
-        //TODO
-
+        if (black) rebalance(ptr, false);
       }
     } else {
       throw sjtu::my_runtime_error("broken tree structure in erase");
