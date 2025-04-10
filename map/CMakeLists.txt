@@ -25,3 +25,9 @@ add_test(NAME map_four COMMAND sh -c "${CMAKE_CURRENT_BINARY_DIR}/map_four >/tmp
         && diff -u ${CMAKE_CURRENT_SOURCE_DIR}/data/four/answer.txt /tmp/four_out.txt>/tmp/four_diff.txt")
 add_test(NAME map_five COMMAND sh -c "${CMAKE_CURRENT_BINARY_DIR}/map_five >/tmp/five_out.txt\
         && diff -u ${CMAKE_CURRENT_SOURCE_DIR}/data/five/answer.txt /tmp/five_out.txt>/tmp/five_diff.txt")
+add_test(NAME corner_one COMMAND sh -c "${CMAKE_CURRENT_BINARY_DIR}/corner_one >/tmp/one_out.txt\
+        && diff -u ${CMAKE_CURRENT_SOURCE_DIR}/corner_data/1.ans /tmp/one_out.txt>/tmp/one_diff.txt")
+add_test(NAME corner_two COMMAND sh -c "${CMAKE_CURRENT_BINARY_DIR}/corner_two >/tmp/two_out.txt\
+        && diff -u ${CMAKE_CURRENT_SOURCE_DIR}/corner_data/2.ans /tmp/two_out.txt>/tmp/two_diff.txt")
+add_test(NAME corner_three COMMAND sh -c "${CMAKE_CURRENT_BINARY_DIR}/corner_three >/tmp/three_out.txt\
+        && diff -u ${CMAKE_CURRENT_SOURCE_DIR}/corner_data/3.ans /tmp/three_out.txt>/tmp/three_diff.txt")

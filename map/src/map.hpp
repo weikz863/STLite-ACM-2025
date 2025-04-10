@@ -20,7 +20,9 @@ class my_runtime_error : public sjtu::exception {
 };
 
 class UnexpectedNull : public sjtu::exception {
- };
+};
+class BlackNotBlack : public sjtu::exception {
+};
 
 template<
     class Key,
@@ -51,8 +53,6 @@ template<
     }
     Node& operator = (const Node &other) = delete;
     void rotate_right() {
-      if (!left) throw sjtu::my_runtime_error("right rotation failed");
-      if (parent == this) throw sjtu::my_runtime_error("trying to right rotate root");
       Node *tmp_left = this->left;
       Node *tmp_parent = this->parent;
       if (tmp_parent->left == this) {
@@ -69,8 +69,6 @@ template<
       tmp_left->right = this;
     }
     void rotate_left() {
-      if (!right) throw sjtu::UnexpectedNull();
-      if (parent == this) throw sjtu::my_runtime_error("trying to left rotate root");
       Node *tmp_right = this->right;
       Node *tmp_parent = this->parent;
       if (tmp_parent->left == this) {
@@ -87,9 +85,6 @@ template<
       tmp_right->left = this;
     }
   };
-  static inline bool is_black(const Node *ptr) {
-    return !ptr || ptr->is_black;
-  }
   static Node *deep_copy(Node *ptr, Node *pa) {
     if (!pa) throw sjtu::my_runtime_error("deep copy with no parent");
     if (!ptr) return nullptr;
@@ -102,7 +97,6 @@ template<
     return ret;
   }
   static Node *next(Node *ptr) {
-    if (!ptr) throw sjtu::my_runtime_error("empty ptr for next");
     if (ptr->right) {
       ptr = ptr->right;
       while (ptr->left) {
@@ -117,7 +111,6 @@ template<
     return ptr;
   }
   static Node *prev(Node *ptr) {
-    if (!ptr) throw sjtu::my_runtime_error("empty ptr for prev");
     if (ptr->left) {
       ptr = ptr->left;
       while (ptr->right) {
@@ -144,7 +137,6 @@ template<
       }
       if (gp->left == pa) {
         if (pa->right == ch) {
-          if (pa->left && !pa->left->is_black) throw sjtu::my_runtime_error("rb not rb");
           pa->rotate_left();
           std::swap(pa, ch);
         }
@@ -152,7 +144,7 @@ template<
         ch->is_black = true;
         ch = pa;
         pa = pa->parent;
-      } else if (gp->right == pa) {
+      } else {
         if (pa->left == ch) {
           pa->rotate_right();
           std::swap(pa, ch);
@@ -161,28 +153,35 @@ template<
         ch->is_black = true;
         ch = pa;
         pa = pa->parent;
-      } else {
-        throw sjtu::my_runtime_error("tree structure broken in red_child");
       }
     }
   }
   static void rebalance(Node *ptr, bool is_left) {
     while (ptr->parent != ptr) {
       if (is_left) {
+        if (ptr->left && !ptr->left->is_black) {
+          // throw sjtu::BlackNotBlack();
+          return;
+        }
         if (ptr->is_black) {
           if (!ptr->right) {
             // throw sjtu::my_runtime_error("broken rb in erase");
             return;
           }
           if (ptr->right->is_black) {
-            ptr->rotate_left();
-            ptr->is_black = false;
-            if (!ptr->right || ptr->right->is_black) {
+            if (ptr->right->left && !ptr->right->left->is_black) {
+              ptr->right->left->is_black = true;
+              ptr->right->rotate_right();
+              ptr->rotate_left();
+              return;
+            } else {
+              ptr->rotate_left();
+              ptr->is_black = false;
               ptr = ptr->parent;
               is_left = (ptr == ptr->parent->left);
               ptr = ptr->parent;
+              continue;
             }
-            continue;
           } else { // ptr is black, left child is double-black; right child is red
             if (!ptr->right) {
               // throw sjtu::my_runtime_error("broken rb in erase");
@@ -199,6 +198,7 @@ template<
             if (ptr->right && !ptr->right->is_black) {
               red_child(ptr, ptr->right);
             }
+            return;
           }
         } else { // ptr is red
           if (!ptr->right) {
@@ -209,22 +209,28 @@ template<
           if (ptr->right && !ptr->right->is_black) {
             red_child(ptr, ptr->right);
           }
+          return;
         }
       } else { // right child of ptr is double-black
         if (ptr->is_black) {
           if (!ptr->left) {
-            // throw sjtu::my_runtime_error("broken rb in erase");
+            throw sjtu::my_runtime_error("broken rb in erase");
             return;
           }
           if (ptr->left->is_black) {
-            ptr->rotate_right();
-            ptr->is_black = false;
-            if (!ptr->left || ptr->left->is_black) {
+            if (ptr->left->right && !ptr->left->right->is_black) {
+              ptr->left->right->is_black = true;
+              ptr->left->rotate_left();
+              ptr->rotate_right();
+              return;
+            } else {
+              ptr->rotate_right();
+              ptr->is_black = false;
               ptr = ptr->parent;
               is_left = (ptr == ptr->parent->left);
               ptr = ptr->parent;
+              continue;
             }
-            continue;
           } else {
             if (!ptr->left) {
               // throw sjtu::my_runtime_error("broken rb in erase");
@@ -241,6 +247,7 @@ template<
             if (ptr->left && !ptr->left->is_black) {
               red_child(ptr, ptr->left);
             }
+            return;
           }
         } else {
           if (!ptr->left) {
@@ -251,12 +258,12 @@ template<
           if (ptr->left && !ptr->left->is_black) {
             red_child(ptr, ptr->left);
           }
+          return;
         }
       }
     }
   }
   Node *try_find(Node *ptr, const Key &key) const {
-    if (!ptr) throw sjtu::my_runtime_error("empty ptr for try_find");
     while (true) {
       if (cmp(ptr->info->first, key)) {
         if (ptr->right) {
@@ -429,11 +436,9 @@ template<
       if (ptr->parent->left == ptr) {
         ptr->parent->left = nullptr;
         delete ptr;
-      } else if (ptr->parent->right == ptr) {
+      } else {
         ptr->parent->right = nullptr;
         delete ptr;
-      } else {
-        throw sjtu::my_runtime_error("broken tree structure in find");
       }
       throw sjtu::index_out_of_bound();
     }
@@ -450,11 +455,9 @@ template<
       if (ptr->parent->left == ptr) {
         ptr->parent->left = nullptr;
         delete ptr;
-      } else if (ptr->parent->right == ptr) {
+      } else {
         ptr->parent->right = nullptr;
         delete ptr;
-      } else {
-        throw sjtu::my_runtime_error("broken tree structure in find");
       }
       throw sjtu::index_out_of_bound();
     }
@@ -497,11 +500,9 @@ template<
       if (ptr->parent->left == ptr) {
         ptr->parent->left = nullptr;
         delete ptr;
-      } else if (ptr->parent->right == ptr) {
+      } else {
         ptr->parent->right = nullptr;
         delete ptr;
-      } else {
-        throw sjtu::my_runtime_error("broken tree structure in find");
       }
       throw sjtu::index_out_of_bound();
     }
@@ -567,17 +568,13 @@ template<
       if (nextptr->right) nextptr->right->parent = ptr;
       if (ptr_parent->left == ptr) {
         ptr_parent->left = nextptr;
-      } else if (ptr_parent->right == ptr) {
-        ptr_parent->right = nextptr;
       } else {
-        throw sjtu::my_runtime_error("broken tree structure in erase");
+        ptr_parent->right = nextptr;
       }
       if (next_parent->left == nextptr) {
         next_parent->left = ptr;
-      } else if (next_parent->right == nextptr) {
-        next_parent->right = ptr;
       } else {
-        throw sjtu::my_runtime_error("broken tree structure in erase");
+        next_parent->right = ptr;
       }
       std::swap(ptr->parent, nextptr->parent);
       std::swap(ptr->left, nextptr->left);
@@ -587,7 +584,6 @@ template<
     if (!ptr->left && ptr->right) {
       ptr->rotate_left();
       if (ptr->right) {
-        // throw sjtu::my_runtime_error("red-black structure broken found in erase");
         ptr->parent->left = ptr->right;
         ptr->right->parent = ptr->parent;
         ptr->right = nullptr;
@@ -595,7 +591,6 @@ template<
         return;
       }
       ptr->parent->left = nullptr;
-      // if (ptr->parent->is_black) throw sjtu::my_runtime_error("red-black structure broken found in erase");
       ptr->parent->is_black = true;
       delete ptr;
       return;
@@ -603,7 +598,6 @@ template<
     if (!ptr->right && ptr->left) {
       ptr->rotate_right();
       if (ptr->left) {
-        // throw sjtu::my_runtime_error("red-black structure broken found in erase");
         ptr->parent->right = ptr->left;
         ptr->left->parent = ptr->parent;
         ptr->left = nullptr;
@@ -611,7 +605,6 @@ template<
         return;
       }
       ptr->parent->right = nullptr;
-      // if (ptr->parent->is_black) throw sjtu::my_runtime_error("red-black structure broken found in erase");
       ptr->parent->is_black = true;
       delete ptr;
       return;
@@ -631,8 +624,6 @@ template<
         ptr->right = nullptr;
         if (black) rebalance(ptr, false);
       }
-    } else {
-      throw sjtu::my_runtime_error("broken tree structure in erase");
     }
   }
 
@@ -652,11 +643,9 @@ template<
       if (ptr->parent->left == ptr) {
         ptr->parent->left = nullptr;
         delete ptr;
-      } else if (ptr->parent->right == ptr) {
+      } else {
         ptr->parent->right = nullptr;
         delete ptr;
-      } else {
-        throw sjtu::my_runtime_error("broken tree structure in find");
       }
       return 0;
     }
@@ -677,11 +666,9 @@ template<
       if (ptr->parent->left == ptr) {
         ptr->parent->left = nullptr;
         delete ptr;
-      } else if (ptr->parent->right == ptr) {
+      } else {
         ptr->parent->right = nullptr;
         delete ptr;
-      } else {
-        throw sjtu::my_runtime_error("broken tree structure in find");
       }
       return root;
     }
@@ -696,11 +683,9 @@ template<
       if (ptr->parent->left == ptr) {
         ptr->parent->left = nullptr;
         delete ptr;
-      } else if (ptr->parent->right == ptr) {
+      } else {
         ptr->parent->right = nullptr;
         delete ptr;
-      } else {
-        throw sjtu::my_runtime_error("broken tree structure in find");
       }
       return root;
     }
