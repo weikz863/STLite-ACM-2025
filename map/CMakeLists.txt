@@ -11,6 +11,9 @@ add_executable(map_two ${CMAKE_CURRENT_SOURCE_DIR}/data/two/code.cpp)
 add_executable(map_three ${CMAKE_CURRENT_SOURCE_DIR}/data/three/code.cpp)
 add_executable(map_four ${CMAKE_CURRENT_SOURCE_DIR}/data/four/code.cpp)
 add_executable(map_five ${CMAKE_CURRENT_SOURCE_DIR}/data/five/code.cpp)
+add_executable(corner_one ${CMAKE_CURRENT_SOURCE_DIR}/corner_data/1.cpp)
+add_executable(corner_two ${CMAKE_CURRENT_SOURCE_DIR}/corner_data/2.cpp)
+add_executable(corner_three ${CMAKE_CURRENT_SOURCE_DIR}/corner_data/3.cpp)
 
 add_test(NAME map_one COMMAND sh -c "${CMAKE_CURRENT_BINARY_DIR}/map_one >/tmp/one_out.txt\
         && diff -u ${CMAKE_CURRENT_SOURCE_DIR}/data/one/answer.txt /tmp/one_out.txt>/tmp/one_diff.txt")

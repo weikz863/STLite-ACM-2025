@@ -144,13 +144,14 @@ template<
       }
       if (gp->left == pa) {
         if (pa->right == ch) {
+          if (pa->left && !pa->left->is_black) throw sjtu::my_runtime_error("rb not rb");
           pa->rotate_left();
           std::swap(pa, ch);
         }
         gp->rotate_right();
         ch->is_black = true;
         ch = pa;
-        pa = gp;
+        pa = pa->parent;
       } else if (gp->right == pa) {
         if (pa->left == ch) {
           pa->rotate_right();
@@ -159,7 +160,7 @@ template<
         gp->rotate_left();
         ch->is_black = true;
         ch = pa;
-        pa = gp;
+        pa = pa->parent;
       } else {
         throw sjtu::my_runtime_error("tree structure broken in red_child");
       }
@@ -175,8 +176,8 @@ template<
           }
           if (ptr->right->is_black) {
             ptr->rotate_left();
+            ptr->is_black = false;
             if (!ptr->right || ptr->right->is_black) {
-              ptr->is_black = false;
               ptr = ptr->parent;
               is_left = (ptr == ptr->parent->left);
               ptr = ptr->parent;
@@ -217,8 +218,8 @@ template<
           }
           if (ptr->left->is_black) {
             ptr->rotate_right();
+            ptr->is_black = false;
             if (!ptr->left || ptr->left->is_black) {
-              ptr->is_black = false;
               ptr = ptr->parent;
               is_left = (ptr == ptr->parent->left);
               ptr = ptr->parent;
