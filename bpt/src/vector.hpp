@@ -133,6 +133,8 @@ public:
     bool operator==(const const_iterator &rhs) const { return ptr == rhs.ptr; }
     bool operator!=(const iterator &rhs) const { return ptr != rhs.ptr; }
     bool operator!=(const const_iterator &rhs) const { return ptr != rhs.ptr; }
+    bool operator<(const iterator &rhs) const { return ptr < rhs.ptr; }
+    bool operator<(const const_iterator &rhs) const { return ptr < rhs.ptr; }
   };
   /**
    * has same function as iterator, just for a const object.
@@ -194,6 +196,8 @@ public:
     bool operator==(const const_iterator &rhs) const { return ptr == rhs.ptr; }
     bool operator!=(const iterator &rhs) const { return ptr != rhs.ptr; }
     bool operator!=(const const_iterator &rhs) const { return ptr != rhs.ptr; }
+    bool operator<(const iterator &rhs) const { return ptr < rhs.ptr; }
+    bool operator<(const const_iterator &rhs) const { return ptr < rhs.ptr; }
   };
   vector() : size_(0), capacity_(kSMALL), arr(alloc.allocate(kSMALL)) {}
   vector(const vector &other) : size_(other.size_), capacity_(other.capacity_) {

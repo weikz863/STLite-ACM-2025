@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef BPT_
-#define BPT_
+#ifndef BPT_FILE_
+#define BPT_FILE_
 
 #include <fstream>
 #include "vector.hpp"
