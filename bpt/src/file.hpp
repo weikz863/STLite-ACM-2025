@@ -20,6 +20,7 @@ class BasicStorage {
   BasicStorage& operator = (BasicStorage &&) = delete;
   virtual void write(int place, const char *value, size_t bytes) = 0;
   virtual void read(int place, char *value, size_t bytes) = 0;
+  virtual int file_size() = 0;
   template<typename T> requires std::is_trivially_copyable<T>::value
   void write_at(int place, const T& value) {
     write(place, reinterpret_cast<const char*>(&value), sizeof(T));
@@ -57,6 +58,9 @@ class VectorStorage : public BasicStorage {
       value[i] = data[place + i];
     }
   }
+  int file_size() override {
+    return data.size();
+  }
 };
 
 class FileStorage : public BasicStorage {
@@ -78,6 +82,10 @@ class FileStorage : public BasicStorage {
   void read(int place, char *value, size_t bytes) override {
     file.seekp(place);
     file.read(value, bytes);
+  }
+  int file_size() override {
+    file.seekp(0, std::ios_base::end);
+    return file.tellp();
   }
 };
 

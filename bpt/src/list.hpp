@@ -5,6 +5,7 @@
 
 #include "file.hpp"
 #include "vector.hpp"
+#include "utility.hpp"
 #include <cstddef>
 
 using sjtu::vector;
@@ -12,9 +13,7 @@ using sjtu::vector;
 template<typename Data, int block_size, typename Storage> 
 requires std::is_base_of<BasicStorage, Storage>::value
 class BlockList {
-  static constexpr int ADDITIONAL = 2 * sizeof(int);
   Storage storage_handler;
-  int block_cnt, first_block;
   struct BlockHead {
     int next;
     Data first;
@@ -26,22 +25,16 @@ class BlockList {
     Block(int next_ = 0, int prev_ = 0, int size_ = 0) : 
         next(next_), prev(prev_), size(size_), data{} {}
   };
+  static_assert(offsetof(Block, next) == 0, "Unexpected alignment in BlockList");
   static_assert(offsetof(BlockHead, first) == offsetof(Block, data), "Unexpected alignment in BlockList");
-  inline constexpr int nth_block(int x) {
-    return ADDITIONAL + sizeof(Block) * x;
-  }
-  void newblock(const Block& block) {
-    int place = nth_block(block_cnt);
+  void new_block(const Block& block) {
+    int place = storage_handler.file_size();
     storage_handler.write_at(place, block);
-    block_cnt++;
-    storage_handler.write_at(0, block_cnt);
     if (block.next != 0) {
       storage_handler.write_at(block.next + offsetof(Block, prev), place);
     }
     if (block.prev != 0) {
       storage_handler.write_at(block.prev + offsetof(Block, next), place);
-    } else {
-      storage_handler.write_at(sizeof(int), place);
     }
   }
   void delblock(const int place) {
@@ -49,19 +42,22 @@ class BlockList {
   }
 
 public:
-  BlockList (const char *s) : storage_handler(s), block_cnt(0), first_block(0) {
-    if (storage_handler.initialized()) {
-      storage_handler.read_at(0, block_cnt);
-      storage_handler.read_at(sizeof(int), first_block);
-    } else {
-      storage_handler.write_at(0, block_cnt);
-      storage_handler.write_at(sizeof(int), first_block);
+  BlockList (const char *s) : storage_handler(s) {
+    if (!storage_handler.initialized() && new_chain() != 0) {
+      throw sjtu::runtime_error();
     }
-  };
-  vector<Data> find(const Data &begin, const Data &end, int current_block) {
+  }
+  int new_chain() {
+    int place = storage_handler.file_size();
+    storage_handler.template write_at<int>(place, 0); // what the heck is this?
+    return place;
+  }
+  vector<Data> find(const Data &begin, const Data &end, int chain_head = 0) {
     vector<Data> ret{};
     BlockHead head;
     Block block;
+    int current_block;
+    storage_handler.read_at(chain_head, current_block);
     int next_block = current_block;
     while (next_block) {
       storage_handler.read_at(next_block, head);
@@ -79,22 +75,16 @@ public:
     }
     return ret;
   }
-  vector<Data> find(const Data &begin, const Data &end) {
-    return find(begin, end, first_block);
-  }
   /*
-  void insert(const Data &x) {
-    if (blocks.empty()) {
-      newblock(0, vector<Data>{x});
-      return;
-    }
-    int blockid = 0;
-    while (blockid < blocks.size() && blocks[blockid].first <= x) {
-      blockid++;
-    }
-    blockid--;
-    if (blockid < 0) {
-      blockid = 0;
+  void insert(const Data &x, int current_block) {
+    BlockHead head;
+    Block block;
+    int next_block = current_block;
+    while (next_block) {
+      storage_handler.read_at(next_block, head);
+      if (x < head.data) break;
+      current_block = next_block;
+      next_block = head.next;
     }
     int pos = 0;
     Data cur;
@@ -135,6 +125,7 @@ public:
     file.write(reinterpret_cast<char*>(&blocks[blockid].size), sizeof(int));
     blocks[blockid].first.readfrom(file);
   }
+    /*
   void delet(const Data &x) {
     int blockid = 0; 
     while (blockid < blocks.size() && blocks[blockid].first <= x) blockid++;
