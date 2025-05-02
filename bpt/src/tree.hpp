@@ -3,13 +3,16 @@
 #ifndef BPT_TREE_
 #define BPT_TREE_
 
+#include <string>
 #include "file.hpp"
+#include "list.hpp"
 
 template<typename Index, typename Value, size_t block_size, typename Storage = VectorStorage>
 requires std::is_base_of<BasicStorage, Storage>::value
 class BPlusTree {
  private:
   Storage storage_handler;
+  BlockList<Value, block_size, Storage> value_handler;
   struct Block {
     int size;
     Index ind[block_size];
@@ -20,7 +23,8 @@ class BPlusTree {
     return i * sizeof(Block);
   }
  public:
-  BPlusTree() : storage_handler("tree") {
+  BPlusTree(const std::string &str) :
+      storage_handler((str + "_tree_").c_str()), value_handler((str + "_list_").c_str()) {
     if (!storage_handler.initialized()) {
       storage_handler.write_at(0, Block());
     }

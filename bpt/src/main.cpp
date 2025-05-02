@@ -9,7 +9,7 @@ struct Index {
     return std::strcmp(str, other.str) < 0;
   }
 } ind;
-BPlusTree<Index, int, 50> tmp;
+BPlusTree<Index, int, 50> tmp("only");
 int main() {
   std::ios::sync_with_stdio(false);
   cin.tie(nullptr);
@@ -24,7 +24,6 @@ int main() {
       if (result.size() == 0) {
         cout << "null\n";
       } else {
-        std::sort(result.begin(), result.end());
         for (const auto &tmp : result) {
           cout << tmp << ' ';
         }
