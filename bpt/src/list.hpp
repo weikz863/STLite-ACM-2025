@@ -6,6 +6,7 @@
 #include "file.hpp"
 #include "vector.hpp"
 #include "exceptions.hpp"
+#include <iostream>
 #include <cstddef>
 
 using sjtu::vector;
@@ -46,9 +47,7 @@ class BlockList {
     if (block.next != 0) {
       storage_handler.write_at(block.next + offsetof(Block, prev), place);
     }
-    if (block.prev != 0) {
-      storage_handler.write_at(block.prev + offsetof(Block, next), place);
-    }
+    storage_handler.write_at(block.prev, place);
   }
   void delblock(const int place) {
     
@@ -85,6 +84,7 @@ public:
         if (end < block.data[i]) return ret;
         ret.push_back(block.data[i]);
       }
+      current_block = block.next;
     }
     return ret;
   }
