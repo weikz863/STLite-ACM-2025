@@ -38,6 +38,18 @@ class BlockList {
         }
       }
     }
+    void erase(const Data &x) {
+      for (int i = 0; i < this->size; i++) {
+        if (x < this->data[i]) return;
+        else if (!(this->data[i] < x)) {
+          this->size--;
+          for (int j = i; j < this->size; j++) {
+            this->data[j] = this->data[j + 1];
+          }
+          return;
+        }
+      }
+    }
   };
   static_assert(offsetof(Block, next) == 0, "Unexpected alignment in BlockList");
   static_assert(offsetof(BlockHead, first) == offsetof(Block, data), "Unexpected alignment in BlockList");
@@ -49,8 +61,11 @@ class BlockList {
     }
     storage_handler.write_at(block.prev, place);
   }
-  void delblock(const int place) {
-    
+  void erase_block(const int prev, const int next) {
+    if (next != 0) {
+      storage_handler.write_at(next + offsetof(Block, prev), prev);
+    }
+    storage_handler.write_at(prev, next);
   }
 
 public:
@@ -126,37 +141,26 @@ public:
       storage_handler.write_at(current_block, block);
     }
   }
-  void erase(const Data &x) {
-    throw sjtu::container_is_empty();
-    /*
-    int blockid = 0; 
-    while (blockid < blocks.size() && blocks[blockid].first <= x) blockid++;
-    blockid = std::max(blockid - 1, 0);
-    Data t;
-    for (int i = blockid; i < blocks.size(); i++) {
-      file.seekp(blocks[i].pos + ADDITIONAL);
-      for (int j = 0; j < blocks[i].size; j++) {
-        t.readfrom(file);
-        if (t > x) return;
-        else if (t == x) {
-          int pos = int(file.tellg()) - sizeof(Data);
-          vector<Data> tmp(blocks[i].size - j - 1);
-          for (auto &dat : tmp) dat.readfrom(file);
-          file.seekg(pos);
-          for (auto &dat : tmp) dat.writeto(file);
-          blocks[i].size--;
-          if (blocks[i].size <= 0) {
-            delblock(i);
-          } else {
-            file.seekg(blocks[i].pos + ADDITIONAL / 2);
-            file.write(reinterpret_cast<char*>(&blocks[i].size), sizeof(int));
-            blocks[i].first.readfrom(file);
-          }
-          return;
-        }
-      }
+  void erase(const Data &x, int chain_head = 0) {
+    BlockHead head;
+    Block block;
+    int current_block;
+    storage_handler.read_at(chain_head, current_block);
+    if (!current_block) return;
+    int next_block = current_block;
+    while (next_block) {
+      storage_handler.read_at(next_block, head);
+      if (x < head.first) break;
+      current_block = next_block;
+      next_block = head.next;
     }
-      */
+    storage_handler.read_at(current_block, block);
+    block.erase(x);
+    if (block.size == 0) {
+      erase_block(block.prev, block.next);
+    } else {
+      storage_handler.write_at(current_block, block);
+    }
   }
 };
 
