@@ -5,7 +5,7 @@
 
 #include "file.hpp"
 #include "vector.hpp"
-#include "utility.hpp"
+#include "exceptions.hpp"
 #include <cstddef>
 
 using sjtu::vector;
@@ -13,6 +13,7 @@ using sjtu::vector;
 template<typename Data, int block_size, typename Storage> 
 requires std::is_base_of<BasicStorage, Storage>::value
 class BlockList {
+  static const int remaining_num = block_size * 2 / 3;
   Storage storage_handler;
   struct BlockHead {
     int next;
@@ -24,6 +25,18 @@ class BlockList {
     int prev, size;
     Block(int next_ = 0, int prev_ = 0, int size_ = 0) : 
         next(next_), prev(prev_), size(size_), data{} {}
+    void insert(const Data &x) {
+      if (this->size == block_size) throw sjtu::runtime_error();
+      this->data[this->size] = x;
+      this->size++;
+      for (int i = this->size - 2; i >= 0; i--) {
+        if (x < this->data[i]) {
+          std::swap(this->data[i], this->data[i + 1]);
+        } else {
+          return;
+        }
+      }
+    }
   };
   static_assert(offsetof(Block, next) == 0, "Unexpected alignment in BlockList");
   static_assert(offsetof(BlockHead, first) == offsetof(Block, data), "Unexpected alignment in BlockList");
@@ -61,7 +74,7 @@ public:
     int next_block = current_block;
     while (next_block) {
       storage_handler.read_at(next_block, head);
-      if (begin < head.data) break;
+      if (begin < head.first) break;
       current_block = next_block;
       next_block = head.next;
     }
@@ -75,58 +88,47 @@ public:
     }
     return ret;
   }
-  /*
-  void insert(const Data &x, int current_block) {
+  void insert(const Data &x, int chain_head = 0) {
     BlockHead head;
     Block block;
+    int current_block;
+    storage_handler.read_at(chain_head, current_block);
+    if (!current_block) {
+      block.prev = chain_head;
+      block.data[0] = x;
+      block.size = 1;
+      new_block(block);
+      return;
+    }
     int next_block = current_block;
     while (next_block) {
       storage_handler.read_at(next_block, head);
-      if (x < head.data) break;
+      if (x < head.first) break;
       current_block = next_block;
       next_block = head.next;
     }
-    int pos = 0;
-    Data cur;
-    file.seekp(blocks[blockid].pos + ADDITIONAL);
-    cur.readfrom(file);
-    pos++;
-    while (pos < blocks[blockid].size && cur < x) {
-      cur.readfrom(file);
-      pos++;
-    }
-    if (cur >= x) {
-      file.seekp(-sizeof(Data), std::ios_base::cur);
-      x.writeto(file);
+    storage_handler.read_at(current_block, block);
+    if (block.size == block_size) {
+      block.size = remaining_num;
+      Block block_after(block.next, current_block, block_size - remaining_num);
+      for (int i = remaining_num; i < block_size; i++) {
+        block_after.data[i - remaining_num] = block.data[i];
+      }
+      if (x < block_after.data[0]) {
+        block.insert(x);
+      } else {
+        block_after.insert(x);
+      }
+      storage_handler.write_at(current_block, block);
+      new_block(block_after);
     } else {
-      cur = x;
+      block.insert(x);
+      storage_handler.write_at(current_block, block);
     }
-    Data t;
-    while (pos < blocks[blockid].size) {
-      t.readfrom(file);
-      file.seekp(-sizeof(Data), std::ios_base::cur);
-      cur.writeto(file);
-      cur = t;
-      pos++;
-    }
-    if (blocks[blockid].size == block_size) {
-      int const rem = block_size * 2 / 3;
-      file.seekp(blocks[blockid].pos + rem * sizeof(Data) + ADDITIONAL);
-      vector<Data> split(block_size - rem);
-      for (auto &tmp : split) tmp.readfrom(file);
-      split.push_back(cur);
-      newblock(blockid + 1, split);
-      blocks[blockid].size = rem;
-    } else {
-      blocks[blockid].size++;
-      cur.writeto(file);
-    }
-    file.seekp(blocks[blockid].pos + ADDITIONAL / 2);
-    file.write(reinterpret_cast<char*>(&blocks[blockid].size), sizeof(int));
-    blocks[blockid].first.readfrom(file);
   }
+  void erase(const Data &x) {
+    throw sjtu::container_is_empty();
     /*
-  void delet(const Data &x) {
     int blockid = 0; 
     while (blockid < blocks.size() && blocks[blockid].first <= x) blockid++;
     blockid = std::max(blockid - 1, 0);
@@ -154,8 +156,8 @@ public:
         }
       }
     }
+      */
   }
-    */
 };
 
 

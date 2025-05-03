@@ -1,5 +1,4 @@
-#include "tree.hpp"
-#include <algorithm>
+#include "list.hpp"
 #include <iostream>
 #include <cstring>
 using std::cin, std::cout, std::endl;
