@@ -38,17 +38,18 @@ class BlockList {
         }
       }
     }
-    void erase(const Data &x) {
+    bool erase(const Data &x) {
       for (int i = 0; i < this->size; i++) {
-        if (x < this->data[i]) return;
+        if (x < this->data[i]) return false;
         else if (!(this->data[i] < x)) {
           this->size--;
           for (int j = i; j < this->size; j++) {
             this->data[j] = this->data[j + 1];
           }
-          return;
+          return true;
         }
       }
+      return false;
     }
   };
   static_assert(offsetof(Block, next) == 0, "Unexpected alignment in BlockList");
@@ -155,10 +156,23 @@ public:
       next_block = head.next;
     }
     storage_handler.read_at(current_block, block);
-    block.erase(x);
-    if (block.size == 0) {
-      erase_block(block.prev, block.next);
-    } else {
+    if (block.erase(x)) {
+      if (block.next) {
+        int next_size = 0;
+        storage_handler.read_at(block.next + offsetof(Block, size), next_size);
+        if (block.size + next_size <= block_size / 2) {
+          Block next;
+          storage_handler.read_at(block.next, next);
+          for (int i = 0; i < next.size; i++) {
+            block.data[i + block.size] = next.data[i];
+          }
+          block.size += next.size;
+          block.next = next.next;
+          if (block.next) {
+            storage_handler.write_at(block.next + offsetof(Block, prev), current_block);
+          }
+        }
+      }
       storage_handler.write_at(current_block, block);
     }
   }
