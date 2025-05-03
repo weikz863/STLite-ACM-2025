@@ -79,7 +79,7 @@ public:
     }
     while (current_block) {
       storage_handler.read_at(current_block, block);
-      for (int i = 0; i < block_size; i++) {
+      for (int i = 0; i < block.size; i++) {
         if (block.data[i] < begin) continue;
         if (end < block.data[i]) return ret;
         ret.push_back(block.data[i]);
