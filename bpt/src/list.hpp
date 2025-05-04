@@ -16,6 +16,7 @@ requires std::is_base_of<BasicStorage, Storage>::value
 class BlockList {
   static const int remaining_num = block_size * 2 / 3;
   Storage storage_handler;
+  int root;
   struct BlockHead {
     int next;
     Data first;
@@ -71,17 +72,27 @@ class BlockList {
 
 public:
   template<typename... Args>
-  BlockList (Args... args) : storage_handler(std::forward<Args...>(args...)) {
-    if (!storage_handler.initialized() && new_chain() != 0) {
+  BlockList (Args... args) : 
+      storage_handler(std::forward<Args...>(args...)) {
+    if (storage_handler.initialized()) {
+      storage_handler.read_at(0, root);
+    } else {
+      root = 0;
+      storage_handler.template write_at<int>(0, 0);
+      storage_handler.initialized() = true;
+    }
+  }
+  template<typename... Args>
+  BlockList (int root_, Args... args) : root(root_),
+      storage_handler(std::forward<Args...>(args...)) {
+    if (!storage_handler.initialized()) {
       throw sjtu::runtime_error();
     }
   }
-  int new_chain() {
-    int place = storage_handler.file_size();
-    storage_handler.template write_at<int>(place, 0); // what the heck is this?
-    return place;
+  int operator&() const {
+    return root;
   }
-  vector<Data> find(const Data &begin, const Data &end, int chain_head = 0) {
+  vector<Data> find(const Data &begin, const Data &end, int chain_head) {
     vector<Data> ret{};
     BlockHead head;
     Block block;
@@ -105,7 +116,7 @@ public:
     }
     return ret;
   }
-  void insert(const Data &x, int chain_head = 0) {
+  void insert(const Data &x, int chain_head) {
     BlockHead head;
     Block block;
     int current_block;
@@ -143,7 +154,7 @@ public:
       storage_handler.write_at(current_block, block);
     }
   }
-  void erase(const Data &x, int chain_head = 0) {
+  void erase(const Data &x, int chain_head) {
     BlockHead head;
     Block block;
     int current_block;
@@ -176,6 +187,15 @@ public:
       }
       storage_handler.write_at(current_block, block);
     }
+  }
+  vector<Data> find(const Data &begin, const Data &end) {
+    return find(begin, end, root);
+  }
+  void insert(const Data &x) {
+    insert(x, root);
+  }
+  void erase(const Data &x) {
+    erase(x, root);
   }
 };
 

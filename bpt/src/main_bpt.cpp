@@ -1,14 +1,20 @@
-#include "list.hpp"
+#include "tree.hpp"
 #include <iostream>
 #include <cstring>
 using std::cin, std::cout, std::endl;
-struct Index {
-  char str[65];
-  bool operator < (const Index &other) const {
-    return std::strcmp(str, other.str) < 0;
+struct KeyAndValue {
+  static size_t const N = 65;
+  char str[N];
+  int value;
+  KeyAndValue(const char *str_ = "", int value_ = 0) : value(value_) {
+    std::strncpy(str, str_, N);
+  }
+  bool operator < (const KeyAndValue &other) const {
+    int i = std::strcmp(str, other.str);
+    return i ? i < 0 : value < other.value;
   }
 } ind;
-BPlusTree<Index, int, 50> tmp("only");
+BPlusTree<KeyAndValue, 50> tree("tree");
 int main() {
   std::ios::sync_with_stdio(false);
   cin.tie(nullptr);
@@ -19,15 +25,21 @@ int main() {
     cin >> option;
     if (option[0] == 'f') { // "find"
       cin >> ind.str;
-      auto result = tmp.find(ind);
+      auto result = tree.find(KeyAndValue(ind.str, 0), KeyAndValue(ind.str, INT_MAX));
       if (result.size() == 0) {
         cout << "null\n";
       } else {
         for (const auto &tmp : result) {
-          cout << tmp << ' ';
+          cout << tmp.value << ' ';
         }
         cout << '\n';
       }
+    } else if (option[0] == 'd') { // "delete"
+      cin >> ind.str >> ind.value;
+      tree.erase(ind);
+    } else { // "insert"
+      cin >> ind.str >> ind.value;
+      tree.insert(ind);
     }
   }
   return 0;

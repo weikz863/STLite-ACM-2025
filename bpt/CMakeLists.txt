@@ -4,3 +4,4 @@ set(CMAKE_CXX_STANDARD 20)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_executable(code ${CMAKE_CURRENT_SOURCE_DIR}/src/main_list.cpp)
+add_executable(other ${CMAKE_CURRENT_SOURCE_DIR}/src/main_bpt.cpp)
