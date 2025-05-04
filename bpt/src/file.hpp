@@ -4,6 +4,7 @@
 #define BPT_FILE_
 
 #include <fstream>
+#include <memory>
 #include "vector.hpp"
 using std::ifstream, std::ofstream, std::fstream;
 using sjtu::vector;
@@ -14,8 +15,9 @@ class BasicStorage {
  public:
   BasicStorage() = delete;
   BasicStorage(const char *name) : initialized_(false) {}
-  BasicStorage(const BasicStorage &) = delete;
-  BasicStorage(BasicStorage &&) = delete;
+  BasicStorage(const BasicStorage &other) = default;
+  BasicStorage(BasicStorage &&other) = default;
+  ~BasicStorage() = default;
   BasicStorage& operator = (const BasicStorage &) = delete;
   BasicStorage& operator = (BasicStorage &&) = delete;
   virtual void write(int place, const char *value, size_t bytes) = 0;
@@ -45,6 +47,8 @@ class VectorStorage : public BasicStorage {
   vector<char> data;
  public:
   VectorStorage(const char *name) : BasicStorage(name), data() {}
+  VectorStorage(const VectorStorage &other) = delete;
+  VectorStorage(VectorStorage &&other) = delete;
   void write(int place, const char *value, size_t bytes) override {
     if (data.size() < place + bytes) {
       data.resize(place + bytes);
@@ -65,27 +69,30 @@ class VectorStorage : public BasicStorage {
 
 class FileStorage : public BasicStorage {
  private:
-  fstream file;
+  std::shared_ptr<fstream> file;
  public:
-  FileStorage(const char *name) : BasicStorage(name) {
-    file.open(name, std::ios_base::in | std::ios_base::out | std::ios_base::binary);
-    if (file.is_open()) {
+  FileStorage(const char *name) : BasicStorage(name), file(new fstream) {
+    file->open(name, std::ios_base::in | std::ios_base::out | std::ios_base::binary);
+    if (file->is_open()) {
       initialized_ = true;
     } else {
-      file.open(name, std::ios_base::in | std::ios_base::out | std::ios_base::trunc | std::ios::binary);
+      file->open(name, std::ios_base::in | std::ios_base::out | std::ios_base::trunc | std::ios::binary);
     }
   }
+  FileStorage(const FileStorage &) = default;
+  FileStorage(FileStorage &&) = default;
+  ~FileStorage() = default;
   void write(int place, const char *value, size_t bytes) override {
-    file.seekp(place);
-    file.write(value, bytes);
+    file->seekp(place);
+    file->write(value, bytes);
   }
   void read(int place, char *value, size_t bytes) override {
-    file.seekp(place);
-    file.read(value, bytes);
+    file->seekp(place);
+    file->read(value, bytes);
   }
   int file_size() override {
-    file.seekp(0, std::ios_base::end);
-    return file.tellp();
+    file->seekp(0, std::ios_base::end);
+    return file->tellp();
   }
 };
 

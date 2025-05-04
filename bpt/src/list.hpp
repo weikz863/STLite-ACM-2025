@@ -70,7 +70,8 @@ class BlockList {
   }
 
 public:
-  BlockList (const char *s) : storage_handler(s) {
+  template<typename... Args>
+  BlockList (Args... args) : storage_handler(std::forward<Args...>(args...)) {
     if (!storage_handler.initialized() && new_chain() != 0) {
       throw sjtu::runtime_error();
     }
