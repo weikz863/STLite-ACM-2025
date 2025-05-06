@@ -16,16 +16,16 @@ using sjtu::vector;
 template<typename Data, int block_size, typename Storage> 
 requires std::is_base_of<BasicStorage, Storage>::value
 class BlockList {
-  using RawDataType = decltype(
+  using RawData = decltype(
     [] () {
       if constexpr (is_sjtu_pair_with_int<Data>::value) {
         return std::type_identity<typename Data::FirstType>{};
       } else {
         return std::type_identity<Data>{};
       }
-    }
-  );
-  using ParentDataType = sjtu::pair<RawDataType, int>;
+    } ()
+  )::type;
+  using ParentDataType = sjtu::pair<RawData, int>;
   using ParentType = BlockList<ParentDataType, block_size, Storage>;
   Storage storage_handler;
   int root;
@@ -79,7 +79,25 @@ class BlockList {
     ~AutonomousBlock() {
       storage_handler.write_at(place, block);
     }
-    auto find()
+    vector<RawData> find(const RawData &first, const RawData &last) {
+      if constexpr (is_sjtu_pair_with_int<Data>::value) {
+        vector<int> ret;
+        for (int i = 0; i < block.size; i++) {
+          if (block.data[i].first < first) continue;
+          if (last < block.data[i].first) return ret;
+          ret.push_back(block.data[i].second);
+        }
+        return ret;
+      } else {
+        vector<RawData> ret;
+        for (int i = 0; i < block.size; i++) {
+          if (block.data[i] < first) continue;
+          if (last < block.data[i]) return ret;
+          ret.push_back(block.data[i]);
+        }
+        return ret;
+      }
+    }
   };
   static_assert(offsetof(Block, next) == 0, "Unexpected alignment in BlockList");
   static_assert(offsetof(BlockHead, first) == offsetof(Block, data), "Unexpected alignment in BlockList");
@@ -114,12 +132,12 @@ public:
   int operator&() const {
     return root;
   }
-  vector<Data> find(const Data &begin, const Data &end, int chain_head) {
-    vector<Data> ret{};
+  vector<RawData> find(const RawData &begin, const RawData &end, int head_ptr_place) {
+    vector<RawData> ret{};
     BlockHead head;
     Block block;
     int current_block;
-    storage_handler.read_at(chain_head, current_block);
+    storage_handler.read_at(head_ptr_place, current_block);
     int next_block = current_block;
     while (next_block) {
       storage_handler.read_at(next_block, head);
@@ -128,11 +146,10 @@ public:
       next_block = head.next;
     }
     while (current_block) {
-      storage_handler.read_at(current_block, block);
-      for (int i = 0; i < block.size; i++) {
-        if (block.data[i] < begin) continue;
-        if (end < block.data[i]) return ret;
-        ret.push_back(block.data[i]);
+      auto ans = AutonomousBlock(storage_handler, current_block).find(begin, end);
+      if (ans.empty()) break;
+      for (const auto &t : ans) {
+        ret.push_back(t);
       }
       current_block = block.next;
     }
@@ -210,7 +227,7 @@ public:
       storage_handler.write_at(current_block, block);
     }
   }
-  vector<Data> find(const Data &begin, const Data &end) {
+  vector<RawData> find(const RawData &begin, const RawData &end) {
     return find(begin, end, root);
   }
   void insert(const Data &x) {
