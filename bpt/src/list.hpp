@@ -95,6 +95,7 @@ public:
     int const place;
     Block block;
     AutonomousBlock(Storage &other, int place_) : storage_handler(other), place(place_) {
+      if (place_ == 0) throw sjtu::runtime_error();
       storage_handler.read_at(place, block);
     }
     AutonomousBlock(const AutonomousBlock &) = delete;
