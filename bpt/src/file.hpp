@@ -44,26 +44,26 @@ class BasicStorage {
 
 class VectorStorage : public BasicStorage {
  private:
-  vector<char> data;
+  std::shared_ptr<vector<char>> data;
  public:
-  VectorStorage(const char *name) : BasicStorage(name), data() {}
-  VectorStorage(const VectorStorage &other) = delete;
-  VectorStorage(VectorStorage &&other) = delete;
+  VectorStorage(const char *name) : BasicStorage(name), data(std::make_shared<vector<char>>()) {}
+  VectorStorage(const VectorStorage &other) = default;
+  VectorStorage(VectorStorage &&other) = default;
   void write(int place, const char *value, size_t bytes) override {
-    if (data.size() < place + bytes) {
-      data.resize(place + bytes);
+    if (data->size() < place + bytes) {
+      data->resize(place + bytes);
     }
     for (int i = 0; i < bytes; i++) {
-      data[place + i] = value[i];
+      data->operator[](place + i) = value[i];
     }
   }
   void read(int place, char *value, size_t bytes) override {
     for (int i = 0; i < bytes; i++) {
-      value[i] = data[place + i];
+      value[i] = data->operator[](place + i);
     }
   }
   int file_size() override {
-    return data.size();
+    return data->size();
   }
 };
 

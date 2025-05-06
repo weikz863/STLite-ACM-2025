@@ -167,11 +167,12 @@ public:
     while (current_block) {
       storage_handler.read_at(current_block, head);
       if (end < head.first) break;
-      auto ans = AutonomousBlock(storage_handler, current_block).find(begin, end);
+      AutonomousBlock tmp(storage_handler, current_block);
+      auto ans = tmp.find(begin, end);
       for (const auto &t : ans) {
         ret.push_back(t);
       }
-      current_block = block.next;
+      current_block = tmp.block.next;
     }
     return ret;
   }
