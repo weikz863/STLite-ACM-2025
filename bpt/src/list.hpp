@@ -31,7 +31,7 @@ class BlockList {
   int root;
   struct BlockHead {
     int next;
-    Data first;
+    RawData first;
   };
   struct Block {
     int next;
@@ -74,6 +74,7 @@ class BlockList {
   };
   static_assert(offsetof(Block, next) == 0, "Unexpected alignment in BlockList");
   static_assert(offsetof(BlockHead, first) == offsetof(Block, data), "Unexpected alignment in BlockList");
+  static_assert(offsetof(ParentDataType, first) == 0, "Unexpected alignment in sjtu::pair");
   void new_block(const Block& block) {
     int place = storage_handler.file_size();
     storage_handler.write_at(place, block);
@@ -105,7 +106,7 @@ public:
     ~AutonomousBlock() {
       storage_handler.write_at(place, block);
     }
-    vector<RawData> find(const RawData &first, const RawData &last) {
+    auto find(const RawData &first, const RawData &last) {
       if constexpr (is_sjtu_pair_with_int<Data>::value) {
         vector<int> ret;
         for (int i = 0; i < block.size; i++) {
@@ -164,8 +165,9 @@ public:
       next_block = head.next;
     }
     while (current_block) {
+      storage_handler.read_at(current_block, head);
+      if (end < head.first) break;
       auto ans = AutonomousBlock(storage_handler, current_block).find(begin, end);
-      if (ans.empty()) break;
       for (const auto &t : ans) {
         ret.push_back(t);
       }
