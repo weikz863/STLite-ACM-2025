@@ -8,10 +8,8 @@
 #include "list.hpp"
 #include "utility.hpp"
 
-using sjtu::pair;
-
 template<typename Data, size_t block_size, typename Storage = FileStorage>
-requires std::is_base_of<BasicStorage, Storage>::value
+requires (std::is_base_of<BasicStorage, Storage>::value && !is_sjtu_pair_with_int<Data>::value)
 class BPlusTree {
  private:
   Storage storage_handler; // this should be defined before others to ensure correct initialization sequence
@@ -44,6 +42,28 @@ class BPlusTree {
   }
   void erase(const Data &x) {
     erase(x, root);
+  }
+};
+
+template<typename Data, size_t block_size, typename Storage = FileStorage>
+requires (std::is_base_of<BasicStorage, Storage>::value && !is_sjtu_pair_with_int<Data>::value)
+class BlockBlockList {
+ private:
+  static int const HEAD_ROOT = BlockList<Data, block_size, Storage>::ROOT_SIZE;
+  Storage storage_handler; // definintion order matters here
+  BlockList<Data, block_size, Storage> leaves;
+  BlockList<sjtu::pair<Data, int>, block_size, Storage> heads;
+ public:
+  BlockBlockList(const char *str) : storage_handler(str),
+      leaves(storage_handler), heads(HEAD_ROOT, storage_handler) {}
+  vector<Data> find(const Data &begin, const Data &end) {
+    return leaves.find(begin, end);
+  }
+  void insert(const Data &x) {
+    leaves.insert(x);
+  }
+  void erase(const Data &x) {
+    leaves.erase(x);
   }
 };
 

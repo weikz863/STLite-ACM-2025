@@ -5,16 +5,28 @@
 
 #include "file.hpp"
 #include "vector.hpp"
+#include "utility.hpp"
 #include "exceptions.hpp"
 #include <iostream>
 #include <cstddef>
+#include <functional>
 
 using sjtu::vector;
 
 template<typename Data, int block_size, typename Storage> 
 requires std::is_base_of<BasicStorage, Storage>::value
 class BlockList {
-  static const int remaining_num = block_size * 2 / 3;
+  using RawDataType = decltype(
+    [] () {
+      if constexpr (is_sjtu_pair_with_int<Data>::value) {
+        return std::type_identity<typename Data::FirstType>{};
+      } else {
+        return std::type_identity<Data>{};
+      }
+    }
+  );
+  using ParentDataType = sjtu::pair<RawDataType, int>;
+  using ParentType = BlockList<ParentDataType, block_size, Storage>;
   Storage storage_handler;
   int root;
   struct BlockHead {
@@ -53,6 +65,22 @@ class BlockList {
       return false;
     }
   };
+  struct AutonomousBlock {
+    Storage storage_handler;
+    int const place;
+    Block block;
+    AutonomousBlock(Storage &other, int place_) : storage_handler(other), place(place_) {
+      storage_handler.read_at(place, block);
+    }
+    AutonomousBlock(const AutonomousBlock &) = delete;
+    AutonomousBlock(AutonomousBlock &&) = delete;
+    AutonomousBlock& operator = (const AutonomousBlock &) = delete;
+    AutonomousBlock& operator = (AutonomousBlock &&) = delete;
+    ~AutonomousBlock() {
+      storage_handler.write_at(place, block);
+    }
+    auto find()
+  };
   static_assert(offsetof(Block, next) == 0, "Unexpected alignment in BlockList");
   static_assert(offsetof(BlockHead, first) == offsetof(Block, data), "Unexpected alignment in BlockList");
   void new_block(const Block& block) {
@@ -69,24 +97,18 @@ class BlockList {
     }
     storage_handler.write_at(prev, next);
   }
-
+  static const int remaining_num = block_size * 2 / 3;
 public:
+  static const int ROOT_SIZE = sizeof(root);
   template<typename... Args>
-  BlockList (Args... args) : 
-      storage_handler(std::forward<Args...>(args...)) {
-    if (storage_handler.initialized()) {
-      storage_handler.read_at(0, root);
-    } else {
-      root = 0;
-      storage_handler.template write_at<int>(0, 0);
-      storage_handler.initialized() = true;
-    }
-  }
+  BlockList (Args... args) : BlockList(0, args...) {}
   template<typename... Args>
   BlockList (int root_, Args... args) : root(root_),
       storage_handler(std::forward<Args...>(args...)) {
-    if (!storage_handler.initialized()) {
-      throw sjtu::runtime_error();
+    if (storage_handler.file_size() > root) {
+      ;
+    } else {
+      storage_handler.template write_at<decltype(root)>(root, 0);
     }
   }
   int operator&() const {
