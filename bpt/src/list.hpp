@@ -39,6 +39,13 @@ class BlockList {
     int prev, size;
     Block(int next_ = 0, int prev_ = 0, int size_ = 0) : 
         next(next_), prev(prev_), size(size_), data{} {}
+    RawData& operator[] (int x) {
+      if constexpr (is_sjtu_pair_with_int<Data>::value) {
+        return data[x].first;
+      } else {
+        return data[x];
+      }
+    }
     void insert(const Data &x) {
       if (this->size == block_size) throw sjtu::runtime_error();
       this->data[this->size] = x;
@@ -51,20 +58,38 @@ class BlockList {
         }
       }
     }
-    bool erase(const Data &x) {
+    void erase(const RawData &x) {
       for (int i = 0; i < this->size; i++) {
-        if (x < this->data[i]) return false;
-        else if (!(this->data[i] < x)) {
+        if (x < this->operator[](i)) return;
+        else if (!(this->operator[](i) < x)) {
           this->size--;
           for (int j = i; j < this->size; j++) {
-            this->data[j] = this->data[j + 1];
+            this->operator[](j) = this->operator[](j + 1);
           }
-          return true;
+          return;
         }
       }
-      return false;
+      return;
     }
   };
+  static_assert(offsetof(Block, next) == 0, "Unexpected alignment in BlockList");
+  static_assert(offsetof(BlockHead, first) == offsetof(Block, data), "Unexpected alignment in BlockList");
+  void new_block(const Block& block) {
+    int place = storage_handler.file_size();
+    storage_handler.write_at(place, block);
+    if (block.next != 0) {
+      storage_handler.write_at(block.next + offsetof(Block, prev), place);
+    }
+    storage_handler.write_at(block.prev, place);
+  }
+  void erase_block(const int prev, const int next) {
+    if (next != 0) {
+      storage_handler.write_at(next + offsetof(Block, prev), prev);
+    }
+    storage_handler.write_at(prev, next);
+  }
+  static const int remaining_num = block_size * 2 / 3;
+public:
   struct AutonomousBlock {
     Storage storage_handler;
     int const place;
@@ -98,25 +123,17 @@ class BlockList {
         return ret;
       }
     }
+    AccumulativeFunc<typename ParentType::AutonomousBlock> erase(const RawData &x) {
+      block.erase(x);
+      if (block.size == 0) {
+        storage_handler.write_at(block.prev, block.next);
+        if (block.next) {
+          storage_handler.write_at(block.next, block.prev);
+        }
+      }
+      return {};
+    }
   };
-  static_assert(offsetof(Block, next) == 0, "Unexpected alignment in BlockList");
-  static_assert(offsetof(BlockHead, first) == offsetof(Block, data), "Unexpected alignment in BlockList");
-  void new_block(const Block& block) {
-    int place = storage_handler.file_size();
-    storage_handler.write_at(place, block);
-    if (block.next != 0) {
-      storage_handler.write_at(block.next + offsetof(Block, prev), place);
-    }
-    storage_handler.write_at(block.prev, place);
-  }
-  void erase_block(const int prev, const int next) {
-    if (next != 0) {
-      storage_handler.write_at(next + offsetof(Block, prev), prev);
-    }
-    storage_handler.write_at(prev, next);
-  }
-  static const int remaining_num = block_size * 2 / 3;
-public:
   static const int ROOT_SIZE = sizeof(root);
   template<typename... Args>
   BlockList (Args... args) : BlockList(0, args...) {}
@@ -193,12 +210,12 @@ public:
       storage_handler.write_at(current_block, block);
     }
   }
-  void erase(const Data &x, int chain_head) {
+  AccumulativeFunc<typename ParentType::AutonomousBlock> erase(const RawData &x, int head_ptr_place) {
     BlockHead head;
     Block block;
     int current_block;
-    storage_handler.read_at(chain_head, current_block);
-    if (!current_block) return;
+    storage_handler.read_at(head_ptr_place, current_block);
+    if (!current_block) return {};
     int next_block = current_block;
     while (next_block) {
       storage_handler.read_at(next_block, head);
@@ -206,26 +223,7 @@ public:
       current_block = next_block;
       next_block = head.next;
     }
-    storage_handler.read_at(current_block, block);
-    if (block.erase(x)) {
-      if (block.next) {
-        int next_size = 0;
-        storage_handler.read_at(block.next + offsetof(Block, size), next_size);
-        if (block.size + next_size <= block_size / 2) {
-          Block next;
-          storage_handler.read_at(block.next, next);
-          for (int i = 0; i < next.size; i++) {
-            block.data[i + block.size] = next.data[i];
-          }
-          block.size += next.size;
-          block.next = next.next;
-          if (block.next) {
-            storage_handler.write_at(block.next + offsetof(Block, prev), current_block);
-          }
-        }
-      }
-      storage_handler.write_at(current_block, block);
-    }
+    return AutonomousBlock(storage_handler, current_block).erase(x);
   }
   vector<RawData> find(const RawData &begin, const RawData &end) {
     return find(begin, end, root);
@@ -233,8 +231,8 @@ public:
   void insert(const Data &x) {
     insert(x, root);
   }
-  void erase(const Data &x) {
-    erase(x, root);
+  AccumulativeFunc<typename ParentType::AutonomousBlock> erase(const Data &x) {
+    return erase(x, root);
   }
 };
 

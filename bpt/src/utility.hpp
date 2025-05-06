@@ -36,6 +36,7 @@ struct is_sjtu_pair_with_int<sjtu::pair<U, int>> : std::true_type {};
 
 template <typename T>
 struct AccumulativeFunc : public std::function<void(T)> {
+  AccumulativeFunc() = default;
   template <typename... Args>
   AccumulativeFunc(Args... args) : std::function<void(T)>(std::forward<Args...>(args...)) {}
   AccumulativeFunc operator + (const AccumulativeFunc &other) {
