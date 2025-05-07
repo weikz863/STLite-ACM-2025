@@ -126,26 +126,35 @@ public:
       }
     }
     AccumulativeFunc<typename ParentType::AutonomousBlock> erase(const RawData &x) {
-      block.erase(x);
-      if (block.size == 0) {
-        storage_handler.write_at(block.prev, block.next);
-        if (block.next) {
-          storage_handler.write_at(block.next, block.prev);
-        }
-      } else if (block.next) {
-        int next_size;
-        storage_handler.read_at(block.next + offsetof(Block, size), next_size);
-        if (block.size + next_size < block_size / 2) {
-          Block next;
-          storage_handler.read_at(block.next, next);
-          for (int i = 0; i < next.size; i++) {
-            block.data[i + block.size] = next.data[i];
+      for (int i = 0; i < block.size; i++) {
+        if (x < block.operator[](i)) return {};
+        else if (!(block.operator[](i) < x)) {
+          block.size--;
+          for (int j = i; j < block.size; j++) {
+            block.operator[](j) = block.operator[](j + 1);
           }
-          block.size += next.size;
-          block.next = next.next;
-          if (block.next) {
-            storage_handler.write_at(block.next + offsetof(Block, prev), place);
+          if (block.size == 0) {
+            storage_handler.write_at(block.prev, block.next);
+            if (block.next) {
+              storage_handler.write_at(block.next, block.prev);
+            }
+          } else if (block.next) {
+            int next_size;
+            storage_handler.read_at(block.next + offsetof(Block, size), next_size);
+            if (block.size + next_size < block_size / 2) {
+              Block next;
+              storage_handler.read_at(block.next, next);
+              for (int i = 0; i < next.size; i++) {
+                block.data[i + block.size] = next.data[i];
+              }
+              block.size += next.size;
+              block.next = next.next;
+              if (block.next) {
+                storage_handler.write_at(block.next + offsetof(Block, prev), place);
+              }
+            }
           }
+          return {};
         }
       }
       return {};
