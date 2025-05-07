@@ -94,8 +94,9 @@ public:
   struct AutonomousBlock {
     Storage storage_handler;
     int const place;
+    bool changed;
     Block block;
-    AutonomousBlock(Storage &other, int place_) : storage_handler(other), place(place_) {
+    AutonomousBlock(Storage &other, int place_) : storage_handler(other), place(place_), changed(false) {
       if (place_ == 0) throw sjtu::runtime_error();
       storage_handler.read_at(place, block);
     }
@@ -104,7 +105,7 @@ public:
     AutonomousBlock& operator = (const AutonomousBlock &) = delete;
     AutonomousBlock& operator = (AutonomousBlock &&) = delete;
     ~AutonomousBlock() {
-      storage_handler.write_at(place, block);
+      if (changed) storage_handler.write_at(place, block);
     }
     auto find(const RawData &first, const RawData &last) {
       if constexpr (is_sjtu_pair_with_int<Data>::value) {
@@ -129,6 +130,7 @@ public:
       for (int i = 0; i < block.size; i++) {
         if (x < block.operator[](i)) return {};
         else if (!(block.operator[](i) < x)) {
+          changed = true;
           block.size--;
           for (int j = i; j < block.size; j++) {
             block.operator[](j) = block.operator[](j + 1);
