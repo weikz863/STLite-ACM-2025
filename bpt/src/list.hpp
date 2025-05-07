@@ -132,6 +132,21 @@ public:
         if (block.next) {
           storage_handler.write_at(block.next, block.prev);
         }
+      } else if (block.next) {
+        int next_size;
+        storage_handler.read_at(block.next + offsetof(Block, size), next_size);
+        if (block.size + next_size < block_size / 2) {
+          Block next;
+          storage_handler.read_at(block.next, next);
+          for (int i = 0; i < next.size; i++) {
+            block.data[i + block.size] = next.data[i];
+          }
+          block.size += next.size;
+          block.next = next.next;
+          if (block.next) {
+            storage_handler.write_at(block.next + offsetof(Block, prev), place);
+          }
+        }
       }
       return {};
     }
