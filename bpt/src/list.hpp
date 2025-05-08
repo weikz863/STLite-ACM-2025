@@ -34,12 +34,20 @@ class BlockList {
     RawData first;
   };
   struct Block {
+    static const int remaining_num = block_size * 2 / 3;
     int next;
     Data data[block_size];
     int prev, size;
     Block(int next_ = 0, int prev_ = 0, int size_ = 0) : 
         next(next_), prev(prev_), size(size_), data{} {}
     RawData& operator[] (int x) {
+      if constexpr (is_sjtu_pair_with_int<Data>::value) {
+        return data[x].first;
+      } else {
+        return data[x];
+      }
+    }
+    const RawData& operator[] (int x) const {
       if constexpr (is_sjtu_pair_with_int<Data>::value) {
         return data[x].first;
       } else {
@@ -89,7 +97,6 @@ class BlockList {
     }
     storage_handler.write_at(prev, next);
   }
-  static const int remaining_num = block_size * 2 / 3;
 public:
   struct AutonomousBlock {
     Storage storage_handler;
@@ -107,23 +114,16 @@ public:
     ~AutonomousBlock() {
       if (changed) storage_handler.write_at(place, block);
     }
-    auto find(const RawData &first, const RawData &last) {
+    int find(const RawData &first) {
       if constexpr (is_sjtu_pair_with_int<Data>::value) {
-        vector<int> ret;
         for (int i = 0; i < block.size; i++) {
-          if (block.data[i].first < first) continue;
-          if (last < block.data[i].first) return ret;
-          ret.push_back(block.data[i].second);
+          if (first < block.operator[](i)) {
+            return AutonomousBlock(storage_handler, block.data[std::max(i - 1, 0)]).find(first);
+          }
         }
-        return ret;
+        return AutonomousBlock(storage_handler, block.data[block.size - 1]).find(first);
       } else {
-        vector<RawData> ret;
-        for (int i = 0; i < block.size; i++) {
-          if (block.data[i] < first) continue;
-          if (last < block.data[i]) return ret;
-          ret.push_back(block.data[i]);
-        }
-        return ret;
+        return block.prev;
       }
     }
     AccumulativeFunc<typename ParentType::AutonomousBlock> erase(const RawData &x) {
@@ -140,6 +140,7 @@ public:
             if (block.next) {
               storage_handler.write_at(block.next, block.prev);
             }
+            changed = false;
           } else if (block.next) {
             int next_size;
             storage_handler.read_at(block.next + offsetof(Block, size), next_size);
@@ -161,6 +162,30 @@ public:
       }
       return {};
     }
+    AccumulativeFunc<typename ParentType::AutonomousBlock> insert(const RawData &x) {
+      changed = true;
+      if (block.size == block_size) {
+        block.size = block.remaining_num;
+        Block block_after(block.next, place, block_size - block.remaining_num);
+        for (int i = block.remaining_num; i < block_size; i++) {
+          block_after.data[i - block.remaining_num] = block.data[i];
+        }
+        if (x < block_after.data[0]) {
+          block.insert(x);
+        } else {
+          block_after.insert(x);
+        }
+        int new_place = storage_handler.file_size();
+        storage_handler.write_at(new_place, block_after);
+        if (block_after.next != 0) {
+          storage_handler.write_at(block_after.next + offsetof(Block, prev), new_place);
+        }
+        block.next = new_place;
+      } else {
+        block.insert(x);
+      }
+      return {};
+    }
   };
   static const int ROOT_SIZE = sizeof(root);
   template<typename... Args>
@@ -177,12 +202,26 @@ public:
   int operator&() const {
     return root;
   }
-  vector<RawData> find(const RawData &begin, const RawData &end, int head_ptr_place) {
+  vector<RawData> find(const RawData &begin, const RawData &end, int current_block)
+  requires (!is_sjtu_pair_with_int<Data>::value) {
     vector<RawData> ret{};
-    BlockHead head;
     Block block;
+    while (current_block) {
+      storage_handler.read_at(current_block, block);
+      for (int i = 0; i < block.size; i++) {
+        if (block[i] < begin) continue;
+        if (end < block[i]) return ret;
+        ret.push_back(block[i]);
+      }
+      current_block = block.next;
+    }
+    return ret;
+  }
+  vector<RawData> find(const RawData &begin, const RawData &end)
+  requires (!is_sjtu_pair_with_int<Data>::value) {
+    BlockHead head;
     int current_block;
-    storage_handler.read_at(head_ptr_place, current_block);
+    storage_handler.read_at(root, current_block);
     int next_block = current_block;
     while (next_block) {
       storage_handler.read_at(next_block, head);
@@ -190,27 +229,16 @@ public:
       current_block = next_block;
       next_block = head.next;
     }
-    while (current_block) {
-      storage_handler.read_at(current_block, head);
-      if (end < head.first) break;
-      AutonomousBlock tmp(storage_handler, current_block);
-      auto ans = tmp.find(begin, end);
-      for (const auto &t : ans) {
-        ret.push_back(t);
-      }
-      current_block = tmp.block.next;
-    }
-    return ret;
+    return find(begin, end, current_block);
   }
-  void insert(const Data &x, int chain_head) {
+  void insert(const Data &x)
+  requires (!is_sjtu_pair_with_int<Data>::value) {
     BlockHead head;
-    Block block;
     int current_block;
-    storage_handler.read_at(chain_head, current_block);
+    storage_handler.read_at(root, current_block);
     if (!current_block) {
-      block.prev = chain_head;
+      Block block(0, root, 1);
       block.data[0] = x;
-      block.size = 1;
       new_block(block);
       return;
     }
@@ -221,31 +249,15 @@ public:
       current_block = next_block;
       next_block = head.next;
     }
-    storage_handler.read_at(current_block, block);
-    if (block.size == block_size) {
-      block.size = remaining_num;
-      Block block_after(block.next, current_block, block_size - remaining_num);
-      for (int i = remaining_num; i < block_size; i++) {
-        block_after.data[i - remaining_num] = block.data[i];
-      }
-      if (x < block_after.data[0]) {
-        block.insert(x);
-      } else {
-        block_after.insert(x);
-      }
-      storage_handler.write_at(current_block, block);
-      new_block(block_after);
-    } else {
-      block.insert(x);
-      storage_handler.write_at(current_block, block);
-    }
+    AutonomousBlock(storage_handler, current_block).insert(x);
   }
-  AccumulativeFunc<typename ParentType::AutonomousBlock> erase(const RawData &x, int head_ptr_place) {
+  void erase(const Data &x)
+  requires (!is_sjtu_pair_with_int<Data>::value) {
     BlockHead head;
     Block block;
     int current_block;
-    storage_handler.read_at(head_ptr_place, current_block);
-    if (!current_block) return {};
+    storage_handler.read_at(root, current_block);
+    if (!current_block) return;
     int next_block = current_block;
     while (next_block) {
       storage_handler.read_at(next_block, head);
@@ -253,16 +265,7 @@ public:
       current_block = next_block;
       next_block = head.next;
     }
-    return AutonomousBlock(storage_handler, current_block).erase(x);
-  }
-  vector<RawData> find(const RawData &begin, const RawData &end) {
-    return find(begin, end, root);
-  }
-  void insert(const Data &x) {
-    insert(x, root);
-  }
-  AccumulativeFunc<typename ParentType::AutonomousBlock> erase(const Data &x) {
-    return erase(x, root);
+    AutonomousBlock(storage_handler, current_block).erase(x);
   }
 };
 
