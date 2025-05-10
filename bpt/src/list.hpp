@@ -135,13 +135,13 @@ public:
           for (int j = i; j < block.size; j++) {
             block.operator[](j) = block.operator[](j + 1);
           }
-          /* if (block.size == 0) {
+          if (block.size == 0) {
             storage_handler.write_at(block.prev, block.next);
             if (block.next) {
-              storage_handler.write_at(block.next, block.prev);
+              storage_handler.write_at(block.next + offsetof(Block, prev), block.prev);
             }
             changed = false;
-          } else */ if (block.next) {
+          } else if (block.next) {
             int next_size;
             storage_handler.read_at(block.next + offsetof(Block, size), next_size);
             if (block.size + next_size < block_size / 2) {
