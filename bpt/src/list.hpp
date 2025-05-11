@@ -104,7 +104,7 @@ public:
     bool changed;
     Block block;
     AutonomousBlock(Storage &other, int place_) : storage_handler(other), place(place_), changed(false) {
-      if (place_ == 0) throw sjtu::runtime_error();
+      if (place == 0) throw sjtu::runtime_error();
       storage_handler.read_at(place, block);
     }
     AutonomousBlock(const AutonomousBlock &) = delete;
@@ -217,55 +217,37 @@ public:
     }
     return ret;
   }
-  vector<RawData> find(const RawData &begin, const RawData &end)
-  requires (!is_sjtu_pair_with_int<Data>::value) {
+  int find_block(const RawData &x) {
     BlockHead head;
     int current_block;
     storage_handler.read_at(root, current_block);
     int next_block = current_block;
     while (next_block) {
       storage_handler.read_at(next_block, head);
-      if (begin < head.first) break;
+      if (x < head.first) break;
       current_block = next_block;
       next_block = head.next;
     }
-    return find(begin, end, current_block);
+    return current_block;
+  }
+  vector<RawData> find(const RawData &begin, const RawData &end)
+  requires (!is_sjtu_pair_with_int<Data>::value) {
+    return find(begin, end, find_block(begin));
   }
   void insert(const Data &x)
   requires (!is_sjtu_pair_with_int<Data>::value) {
-    BlockHead head;
-    int current_block;
-    storage_handler.read_at(root, current_block);
-    if (!current_block) {
+    int t = find_block(x);
+    if (t == 0) {
       Block block(0, root, 1);
       block.data[0] = x;
       new_block(block);
-      return;
+    } else {
+      AutonomousBlock(storage_handler, find_block(x)).insert(x);
     }
-    int next_block = current_block;
-    while (next_block) {
-      storage_handler.read_at(next_block, head);
-      if (x < head.first) break;
-      current_block = next_block;
-      next_block = head.next;
-    }
-    AutonomousBlock(storage_handler, current_block).insert(x);
   }
   void erase(const Data &x)
   requires (!is_sjtu_pair_with_int<Data>::value) {
-    BlockHead head;
-    Block block;
-    int current_block;
-    storage_handler.read_at(root, current_block);
-    if (!current_block) return;
-    int next_block = current_block;
-    while (next_block) {
-      storage_handler.read_at(next_block, head);
-      if (x < head.first) break;
-      current_block = next_block;
-      next_block = head.next;
-    }
-    AutonomousBlock(storage_handler, current_block).erase(x);
+    AutonomousBlock(storage_handler, find_block(x)).erase(x);
   }
 };
 

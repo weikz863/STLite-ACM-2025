@@ -50,14 +50,14 @@ requires (std::is_base_of<BasicStorage, Storage>::value && !is_sjtu_pair_with_in
 class BlockBlockList {
  private:
   static int const HEAD_ROOT = BlockList<Data, block_size, Storage>::ROOT_SIZE;
-  Storage storage_handler; // definintion order matters here
+  Storage storage_handler; // definition order matters here
   BlockList<Data, block_size, Storage> leaves;
   BlockList<sjtu::pair<Data, int>, block_size, Storage> heads;
  public:
   BlockBlockList(const char *str) : storage_handler(str),
       leaves(storage_handler), heads(HEAD_ROOT, storage_handler) {}
   vector<Data> find(const Data &begin, const Data &end) {
-    return leaves.find(begin, end);
+    return leaves.find(begin, end, heads.find);
   }
   void insert(const Data &x) {
     leaves.insert(x);
