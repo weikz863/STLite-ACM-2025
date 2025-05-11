@@ -14,7 +14,7 @@ struct KeyAndValue {
     return i ? i < 0 : value < other.value;
   }
 } ind;
-BPlusTree<KeyAndValue, 50> tree("tree");
+BlockBlockList<KeyAndValue, 50> tree("tree");
 int main() {
   std::ios::sync_with_stdio(false);
   cin.tie(nullptr);

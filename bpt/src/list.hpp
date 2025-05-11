@@ -28,16 +28,16 @@ class BlockList {
   using ParentDataType = sjtu::pair<RawData, int>;
   using ParentType = BlockList<ParentDataType, block_size, Storage>;
   Storage storage_handler;
-  int root;
+  int const root;
   struct BlockHead {
-    int next;
+    int next, prev;
     RawData first;
   };
   struct Block {
     static const int remaining_num = block_size * 2 / 3;
-    int next;
+    int next, prev;
     Data data[block_size];
-    int prev, size;
+    int size;
     Block(int next_ = 0, int prev_ = 0, int size_ = 0) : 
         next(next_), prev(prev_), size(size_), data{} {}
     RawData& operator[] (int x) {
@@ -81,6 +81,7 @@ class BlockList {
     }
   };
   static_assert(offsetof(Block, next) == 0, "Unexpected alignment in BlockList");
+  static_assert(offsetof(BlockHead, prev) == offsetof(Block, prev), "Unexpected alignment in BlockList");
   static_assert(offsetof(BlockHead, first) == offsetof(Block, data), "Unexpected alignment in BlockList");
   static_assert(offsetof(ParentDataType, first) == 0, "Unexpected alignment in sjtu::pair");
   void new_block(const Block& block) {
@@ -118,10 +119,10 @@ public:
       if constexpr (is_sjtu_pair_with_int<Data>::value) {
         for (int i = 0; i < block.size; i++) {
           if (first < block.operator[](i)) {
-            return AutonomousBlock(storage_handler, block.data[std::max(i - 1, 0)]).find(first);
+            return AutonomousBlock(storage_handler, block.data[std::max(i - 1, 0)].second).find(first);
           }
         }
-        return AutonomousBlock(storage_handler, block.data[block.size - 1]).find(first);
+        return AutonomousBlock(storage_handler, block.data[block.size - 1].second).find(first);
       } else {
         return place;
       }
@@ -163,28 +164,38 @@ public:
       return {};
     }
     AccumulativeFunc<typename ParentType::AutonomousBlock> insert(const RawData &x) {
-      changed = true;
-      if (block.size == block_size) {
-        block.size = block.remaining_num;
-        Block block_after(block.next, place, block_size - block.remaining_num);
-        for (int i = block.remaining_num; i < block_size; i++) {
-          block_after.data[i - block.remaining_num] = block.data[i];
-        }
-        if (x < block_after.data[0]) {
-          block.insert(x);
-        } else {
-          block_after.insert(x);
-        }
-        int new_place = storage_handler.file_size();
-        storage_handler.write_at(new_place, block_after);
-        if (block_after.next != 0) {
-          storage_handler.write_at(block_after.next + offsetof(Block, prev), new_place);
-        }
-        block.next = new_place;
+      if constexpr (is_sjtu_pair_with_int<Data>::value) {
+        // int next_place;
+        // for (int i = 0; i < block.size; i++) {
+        //   if (x < block.operator[](i)) {
+        //     return AutonomousBlock(storage_handler, block.data[std::max(i - 1, 0)].second).find(x);
+        //   }
+        // }
+        // return AutonomousBlock(storage_handler, block.data[block.size - 1].second).find(x);
       } else {
-        block.insert(x);
+        changed = true;
+        if (block.size == block_size) {
+          block.size = block.remaining_num;
+          Block block_after(block.next, place, block_size - block.remaining_num);
+          for (int i = block.remaining_num; i < block_size; i++) {
+            block_after.data[i - block.remaining_num] = block.data[i];
+          }
+          if (x < block_after.data[0]) {
+            block.insert(x);
+          } else {
+            block_after.insert(x);
+          }
+          int new_place = storage_handler.file_size();
+          storage_handler.write_at(new_place, block_after);
+          if (block_after.next != 0) {
+            storage_handler.write_at(block_after.next + offsetof(Block, prev), new_place);
+          }
+          block.next = new_place;
+        } else {
+          block.insert(x);
+        }
+        return {};
       }
-      return {};
     }
   };
   static const int ROOT_SIZE = sizeof(root);

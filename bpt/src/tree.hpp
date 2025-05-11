@@ -57,10 +57,21 @@ class BlockBlockList {
   BlockBlockList(const char *str) : storage_handler(str),
       leaves(storage_handler), heads(HEAD_ROOT, storage_handler) {}
   vector<Data> find(const Data &begin, const Data &end) {
-    return leaves.find(begin, end, heads.find);
+    int place = heads.find_block(begin);
+    if (place == 0) return {};
+    return leaves.find(begin, end, 
+      typename decltype(heads)::AutonomousBlock(storage_handler, place).find(begin));
   }
   void insert(const Data &x) {
-    leaves.insert(x);
+    int place = heads.find_block(x);
+    if (place == 0) {
+      leaves.insert(x);
+      int block_place;
+      storage_handler.read_at(&leaves, block_place);
+      heads.insert(sjtu::pair(x, block_place));
+      return;
+    }
+    typename decltype(heads)::AutonomousBlock(storage_handler, place).insert(x);
   }
   void erase(const Data &x) {
     leaves.erase(x);
