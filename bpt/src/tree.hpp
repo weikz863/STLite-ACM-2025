@@ -68,10 +68,10 @@ class BlockBlockList {
       leaves.insert(x);
       int block_place;
       storage_handler.read_at(&leaves, block_place);
-      heads.insert(sjtu::pair(x, block_place));
+      heads.insert(sjtu::pair<Data, int>(x, block_place));
       return;
     }
-    typename decltype(heads)::AutonomousBlock(storage_handler, place).insert(x);
+    typename decltype(heads)::AutonomousBlock(storage_handler, place).insert(sjtu::pair<Data, int>(x, place));
   }
   void erase(const Data &x) {
     leaves.erase(x);
