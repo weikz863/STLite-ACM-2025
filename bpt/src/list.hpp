@@ -168,12 +168,19 @@ public:
     }
     void replace(const RawData &x, const RawData &y)
     requires is_sjtu_pair_with_int<Data>::value {
+      changed = true;
+      // std::cerr << x.str << " :x, " << y.str << " :y, replacing...\n";
       for (int i = 0; i < block.size; i++) {
         if (!(block[i] < x)) {
-          if (x < block[i]) throw sjtu::runtime_error();
+          if (x < block[i]) {
+            // std::cerr << x.str << " :x, " << block[i].str << " :block[i], " << i << ":i, throwing...\n";
+            throw sjtu::runtime_error();
+          }
           block[i] = y;
           if (i == 0) {
-            back = [=] (typename ParentType::AutonomousBlock &block) { block.replace(x, y); };
+            back = [new_x = x, new_y = y] (typename ParentType::AutonomousBlock &block) {
+                block.replace(new_x, new_y); 
+            };
           }
           return;
         }
