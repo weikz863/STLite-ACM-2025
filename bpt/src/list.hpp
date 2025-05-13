@@ -113,17 +113,74 @@ public:
     }
     int find(const RawData &first) {
       if constexpr (is_sjtu_pair_with_int<Data>::value) {
+        int next_place = -1;
         for (int i = 0; i < block.size; i++) {
           if (first < block.operator[](i)) {
-            return AutonomousBlock(storage_handler, block.data[std::max(i - 1, 0)].second).find(first);
+            next_place = block.data[std::max(i - 1, 0)].second;
+            break;
           }
         }
-        return AutonomousBlock(storage_handler, block.data[block.size - 1].second).find(first);
+        if (next_place == -1) {
+          next_place = block.data[block.size - 1].second;
+        }
+        int prev;
+        storage_handler.read_at(next_place + offsetof(Block, prev), prev);
+        if (prev) {
+          return next_place;
+        } else {
+          return typename ParentType::AutonomousBlock(storage_handler, next_place).find(first);
+        }
       } else {
+        throw sjtu::runtime_error();
         return place;
       }
     }
-    void erase(const Data &x, bool const enable_merge = false) {
+    void insert(const RawData &x)
+    requires is_sjtu_pair_with_int<Data>::value {
+      int next_place = -1;
+      for (int i = 0; i < block.size; i++) {
+        if (x < block[i]) {
+          next_place = block.data[std::max(i - 1, 0)].second;
+          break;
+        }
+      }
+      if (next_place == -1) {
+        // std::cerr << "correct not found\n";
+        next_place = block.data[block.size - 1].second;
+      }
+      int prev;
+      storage_handler.read_at(next_place + offsetof(Block, prev), prev);
+      // std::cerr << offsetof(Block, prev) << " should be sizeof(int): " << sizeof(int) << "\n";
+      AccumulativeFunc<typename ParentType::AutonomousBlock&> ret;
+      if (prev == 0) {
+        // std::cerr << "Parent::AutoBlock::insert::INCORRECT finding ParentType\n";
+        typename ParentType::AutonomousBlock child(storage_handler, next_place);
+        child.insert(x);
+        ret = std::move(child.back);
+      } else {
+        // std::cerr << "Parent::AutoBlock::insert::correct finding BaseType\n";
+        typename BaseType::AutonomousBlock child(storage_handler, next_place);
+        child.insert(x);
+        ret = std::move(child.back);
+      }
+      ret(*this);
+      // std::cerr << "Parent::AutoBlock::insert::END\n";
+    }
+    void replace(const RawData &x, const RawData &y)
+    requires is_sjtu_pair_with_int<Data>::value {
+      for (int i = 0; i < block.size; i++) {
+        if (!(block[i] < x)) {
+          if (x < block[i]) throw sjtu::runtime_error();
+          block[i] = y;
+          if (i == 0) {
+            back = [=] (typename ParentType::AutonomousBlock &block) { block.replace(x, y); };
+          }
+          return;
+        }
+      }
+      throw sjtu::runtime_error();
+    }
+    void erase(const RawData &x, bool const enable_merge = false) {
       for (int i = 0; i < block.size; i++) {
         if (x < block.operator[](i)) return;
         else if (!(block.operator[](i) < x)) {
@@ -159,53 +216,38 @@ public:
     }
     void insert(const Data &x) {
       if (block.size == 0) throw sjtu::runtime_error();
+      changed = true;
       Data first = block.data[0];
-      if constexpr (is_sjtu_pair_with_int<Data>::value) {
-        int next_place = -1;
-        for (int i = 0; i < block.size; i++) {
-          if (extract_data(x) < block.operator[](i)) {
-            next_place = block.data[std::max(i - 1, 0)].second;
-            break;
-          }
+      if (block.size == block_size) {
+        block.size = block.remaining_num;
+        Block block_after(block.next, place, block_size - block.remaining_num);
+        for (int i = block.remaining_num; i < block_size; i++) {
+          block_after.data[i - block.remaining_num] = block.data[i];
         }
-        if (next_place == -1) {
-          next_place = block.data[block.size - 1].second;
-        }
-        int prev;
-        storage_handler.read_at(next_place + offsetof(Block, prev), prev);
-        AccumulativeFunc<typename ParentType::AutonomousBlock&> ret;
-        if (prev == 0) {
-          typename ParentType::AutonomousBlock child(storage_handler, next_place);
-          child.insert(x);
-          ret = std::move(child.back);
-        } else {
-          typename BaseType::AutonomousBlock child(storage_handler, next_place);
-          child.insert(extract_data(x));
-          ret = std::move(child.back);
-        }
-        ret(*this);
-      } else {
-        changed = true;
-        if (block.size == block_size) {
-          block.size = block.remaining_num;
-          Block block_after(block.next, place, block_size - block.remaining_num);
-          for (int i = block.remaining_num; i < block_size; i++) {
-            block_after.data[i - block.remaining_num] = block.data[i];
-          }
-          if (x < block_after.data[0]) {
-            block.insert(x);
-          } else {
-            block_after.insert(x);
-          }
-          int new_place = storage_handler.file_size();
-          storage_handler.write_at(new_place, block_after);
-          if (block_after.next != 0) {
-            storage_handler.write_at(block_after.next + offsetof(Block, prev), new_place);
-          }
-          block.next = new_place;
-        } else {
+        if (x < block_after.data[0]) {
           block.insert(x);
+        } else {
+          block_after.insert(x);
         }
+        int new_place = storage_handler.file_size();
+        storage_handler.write_at(new_place, block_after);
+        if (block_after.next != 0) {
+          storage_handler.write_at(block_after.next + offsetof(Block, prev), new_place);
+        }
+        block.next = new_place;
+        back = [this_first = extract_data(first), 
+                new_first = block[0], 
+                new_block_first = extract_data(block_after[0]), 
+                new_place] (typename ParentType::AutonomousBlock &auto_block) {
+          auto_block.replace(this_first, new_first);
+          auto_block.insert(ParentDataType(new_block_first, new_place));
+        };
+      } else {
+        block.insert(x);
+        back = [this_first = extract_data(first), new_first = block[0]]
+            (typename ParentType::AutonomousBlock &auto_block) {
+          auto_block.replace(this_first, new_first);
+        };
       }
     }
   };
@@ -216,8 +258,9 @@ public:
   BlockList (int root_, Args... args) : root(root_),
       storage_handler(std::forward<Args...>(args...)) {
     if (storage_handler.file_size() > root) {
-      ;
+      // std::cerr << storage_handler.file_size() << "\nINCORRECT constructing...\n";
     } else {
+      // std::cerr << "constructing...\n";
       storage_handler.template write_at<decltype(root)>(root, 0);
     }
   }
@@ -240,9 +283,11 @@ public:
     return ret;
   }
   int find_block(const RawData &x) {
+    // if constexpr (is_sjtu_pair_with_int<Data>::value) std::cerr << "heads.find_block(x)\n";
     BlockHead head;
     int current_block;
     storage_handler.read_at(root, current_block);
+    // if constexpr (is_sjtu_pair_with_int<Data>::value) std::cerr << current_block << ": heads current\n";
     int next_block = current_block;
     while (next_block) {
       storage_handler.read_at(next_block, head);
@@ -256,7 +301,8 @@ public:
   requires (!is_sjtu_pair_with_int<Data>::value) {
     return find(begin, end, find_block(begin));
   }
-  void insert(const Data &x) {
+  void insert(const Data &x)
+  requires (!is_sjtu_pair_with_int<Data>::value) {
     int t = find_block(extract_data(x));
     if (t == 0) {
       Block block(0, root, 1);
@@ -266,7 +312,19 @@ public:
       AutonomousBlock(storage_handler, find_block(extract_data(x))).insert(x);
     }
   }
-  void erase(const Data &x) {
+  void insert(const Data &x)
+  requires (is_sjtu_pair_with_int<Data>::value) {
+    int t = find_block(extract_data(x));
+    if (t == 0) {
+      Block block(0, root, 1);
+      block.data[0] = x;
+      new_block(block);
+    } else {
+      throw sjtu::runtime_error();
+    }
+  }
+  void erase(const Data &x)
+  requires (!is_sjtu_pair_with_int<Data>::value) {
     AutonomousBlock(storage_handler, find_block(extract_data(x))).erase(x);
   }
 };
