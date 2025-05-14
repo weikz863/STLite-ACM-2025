@@ -100,7 +100,8 @@ public:
     bool changed;
     Block block;
     AccumulativeFunc<typename ParentType::AutonomousBlock&> back;
-    AutonomousBlock(Storage &other, int place_) : storage_handler(other), place(place_), changed(false), back() {
+    AutonomousBlock(Storage &other, int place_) : storage_handler(other), place(place_), changed(false), 
+        back([] (typename ParentType::AutonomousBlock&) {}) {
       if (place == 0) throw sjtu::runtime_error();
       storage_handler.read_at(place, block);
     }
@@ -166,6 +167,30 @@ public:
       ret(*this);
       // std::cerr << "Parent::AutoBlock::insert::END\n";
     }
+    void erase(const RawData &x)
+    requires is_sjtu_pair_with_int<Data>::value {
+      int next_place = block.size - 1;
+      for (int i = 0; i < block.size; i++) {
+        if (x < block[i]) {
+          next_place = std::max(i - 1, 0);
+          break;
+        }
+      }
+      next_place = block.data[next_place].second;
+      int prev;
+      storage_handler.read_at(next_place + offsetof(Block, prev), prev);
+      AccumulativeFunc<typename ParentType::AutonomousBlock&> ret;
+      if (prev == 0) {
+        typename ParentType::AutonomousBlock child(storage_handler, next_place);
+        child.erase(x);
+        ret = std::move(child.back);
+      } else {
+        typename BaseType::AutonomousBlock child(storage_handler, next_place);
+        child.erase(x);
+        ret = std::move(child.back);
+      }
+      ret(*this);
+    }
     void replace(const RawData &x, const RawData &y)
     requires is_sjtu_pair_with_int<Data>::value {
       changed = true;
@@ -187,20 +212,26 @@ public:
       }
       throw sjtu::runtime_error();
     }
-    void erase(const RawData &x, bool const enable_merge = false) {
+    void erase(const Data &x, bool const enable_merge = false) {
       for (int i = 0; i < block.size; i++) {
-        if (x < block.operator[](i)) return;
-        else if (!(block.operator[](i) < x)) {
+        if (x < block.data[i]) return;
+        else if (!(block.data[i] < x)) {
           changed = true;
           block.size--;
           for (int j = i; j < block.size; j++) {
-            block.operator[](j) = block.operator[](j + 1);
+            block.data[j] = block.data[j + 1];
           }
           if (block.size == 0) {
-            storage_handler.write_at(block.prev, block.next);
-            if (block.next) {
-              storage_handler.write_at(block.next + offsetof(Block, prev), block.prev);
+            if constexpr (!is_sjtu_pair_with_int<Data>::value) {
+              storage_handler.write_at(block.prev, block.next);
+              if (block.next) {
+                storage_handler.write_at(block.next + offsetof(Block, prev), block.prev);
+              }
             }
+            back = [this_first = block[0], this_place = place]
+                (typename ParentType::AutonomousBlock &auto_block) {
+              auto_block.erase(ParentDataType(this_first, this_place));
+            };
             changed = false;
           } else if (enable_merge && block.next) {
             int next_size;

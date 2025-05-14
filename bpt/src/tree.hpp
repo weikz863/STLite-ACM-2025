@@ -79,7 +79,6 @@ class BlockBlockList {
     typename decltype(heads)::AutonomousBlock(storage_handler, place).insert(x);
   }
   void erase(const Data &x) {
-    throw sjtu::runtime_error();
     int place = heads.find_block(x);
     typename decltype(heads)::AutonomousBlock(storage_handler, place).erase(x);
   }
