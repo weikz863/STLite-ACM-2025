@@ -213,9 +213,11 @@ public:
       throw sjtu::runtime_error();
     }
     void erase(const Data &x, bool const enable_merge = false) {
+      // if constexpr (is_sjtu_pair_with_int<Data>::value) std::cerr << "erasing parent" << x.first.str << "\n";
       for (int i = 0; i < block.size; i++) {
         if (x < block.data[i]) return;
         else if (!(block.data[i] < x)) {
+          // if constexpr (is_sjtu_pair_with_int<Data>::value) std::cerr << "correctly erasing parent\n";
           changed = true;
           block.size--;
           for (int j = i; j < block.size; j++) {
@@ -223,6 +225,7 @@ public:
           }
           if (block.size == 0) {
             if (block.prev) {
+              // std::cerr << "clearing block with prev=" << block.prev << '\n';
               storage_handler.write_at(block.prev, block.next);
               if (block.next) {
                 storage_handler.write_at(block.next + offsetof(Block, prev), block.prev);
@@ -233,7 +236,9 @@ public:
               auto_block.erase(ParentDataType(this_first, this_place));
             };
             changed = false;
-          } else if (enable_merge && block.next) {
+            return;
+          }
+          if (enable_merge && block.next) {
             int next_size;
             storage_handler.read_at(block.next + offsetof(Block, size), next_size);
             if (block.size + next_size < block_size / 2) {
@@ -247,8 +252,16 @@ public:
               if (block.next) {
                 storage_handler.write_at(block.next + offsetof(Block, prev), place);
               }
+              return;
             }
           }
+          if (i == 0) {
+            back = [this_first = extract_data(x), new_first = block[0]]
+                (typename ParentType::AutonomousBlock &auto_block) {
+              auto_block.replace(this_first, new_first);
+            };
+          }
+          return;
         }
       }
     }
