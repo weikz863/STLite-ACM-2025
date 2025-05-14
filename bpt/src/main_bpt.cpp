@@ -14,7 +14,7 @@ struct KeyAndValue {
     return i ? i < 0 : value < other.value;
   }
 } ind;
-BlockBlockList<KeyAndValue, 5, FileStorage> tree("list");
+BlockBlockList<KeyAndValue, 55, FileStorage> tree("list");
 int main() {
   std::ios::sync_with_stdio(false);
   cin.tie(nullptr);
