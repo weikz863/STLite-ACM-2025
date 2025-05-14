@@ -222,7 +222,7 @@ public:
             block.data[j] = block.data[j + 1];
           }
           if (block.size == 0) {
-            if constexpr (!is_sjtu_pair_with_int<Data>::value) {
+            if (block.prev) {
               storage_handler.write_at(block.prev, block.next);
               if (block.next) {
                 storage_handler.write_at(block.next + offsetof(Block, prev), block.prev);
