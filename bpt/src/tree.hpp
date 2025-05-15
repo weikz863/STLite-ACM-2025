@@ -80,6 +80,7 @@ class BlockBlockList {
   }
   void erase(const Data &x) {
     int place = heads.find_block(x);
+    if (place == 0) return;
     typename decltype(heads)::AutonomousBlock(storage_handler, place).erase(x);
   }
 };
