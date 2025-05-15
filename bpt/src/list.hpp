@@ -303,11 +303,12 @@ public:
     }
   };
   static const int ROOT_SIZE = sizeof(root);
-  template<typename... Args>
-  BlockList (Args... args) : BlockList(0, args...) {}
+  // template<typename... Args>
+  // BlockList (Args... args) : BlockList(0, args...) {}
   template<typename... Args>
   BlockList (int root_, Args... args) : root(root_),
       storage_handler(std::forward<Args...>(args...)) {
+    if (root == 0) throw sjtu::runtime_error();
     if (storage_handler.file_size() > root) {
       // std::cerr << storage_handler.file_size() << "\nINCORRECT constructing...\n";
     } else {

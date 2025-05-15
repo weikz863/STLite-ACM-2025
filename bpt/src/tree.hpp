@@ -51,11 +51,17 @@ requires (std::is_base_of<BasicStorage, Storage>::value && !is_sjtu_pair_with_in
 class BlockBlockList {
  private:
   static int const HEAD_ROOT = BlockList<Data, block_size, Storage>::ROOT_SIZE;
+  struct InitializeHelper {
+    InitializeHelper(Storage &storage) {
+      storage.template write_at<int>(0, 0);
+    }
+  };
   Storage storage_handler; // definition order matters here
+  InitializeHelper helper;
   BlockList<Data, block_size, Storage> leaves;
   BlockList<sjtu::pair<Data, int>, block_size, Storage> heads;
  public:
-  BlockBlockList(const char *str) : storage_handler(str),
+  BlockBlockList(const char *str) : storage_handler(str), helper(storage_handler),
       leaves(HEAD_ROOT, storage_handler), heads(2 * HEAD_ROOT, storage_handler) {}
   vector<Data> find(const Data &begin, const Data &end) {
     // std::cerr << "BBL::FIND\n";

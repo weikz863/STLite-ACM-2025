@@ -13,8 +13,9 @@ struct KeyAndValue {
     int i = std::strcmp(str, other.str);
     return i ? i < 0 : value < other.value;
   }
+  bool operator == (const KeyAndValue &other) const = delete;
 } ind;
-BlockBlockList<KeyAndValue, 111, FileStorage> tree("list");
+BlockBlockList<KeyAndValue, 221, FileStorage> tree("list");
 int main() {
   std::ios::sync_with_stdio(false);
   cin.tie(nullptr);
@@ -25,7 +26,7 @@ int main() {
     cin >> option;
     if (option[0] == 'f') { // "find"
       cin >> ind.str;
-      auto result = tree.find(KeyAndValue(ind.str, 0), KeyAndValue(ind.str, INT_MAX));
+      auto result = tree.find(KeyAndValue(ind.str, INT_MIN), KeyAndValue(ind.str, INT_MAX));
       if (result.size() == 0) {
         cout << "null\n";
       } else {
