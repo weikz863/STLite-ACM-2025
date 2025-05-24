@@ -15,7 +15,7 @@ struct KeyAndValue {
   }
   bool operator == (const KeyAndValue &other) const = delete;
 } ind;
-BlockBlockList<KeyAndValue, 3 * 4096 / sizeof(KeyAndValue), FileStorage> tree("list");
+BlockBlockList<KeyAndValue, 3 * 4096 / (sizeof(KeyAndValue) + 4), FileStorage> tree("list");
 int main() {
   std::ios::sync_with_stdio(false);
   cin.tie(nullptr);
