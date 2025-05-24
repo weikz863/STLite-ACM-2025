@@ -1,4 +1,4 @@
-#include "tree.hpp"
+#include "blockblocklist.hpp"
 #include <iostream>
 #include <cstring>
 using std::cin, std::cout, std::endl;
@@ -15,7 +15,7 @@ struct KeyAndValue {
   }
   bool operator == (const KeyAndValue &other) const = delete;
 } ind;
-BPlusTree<KeyAndValue, 161, FileStorage> tree("list");
+BlockBlockList<KeyAndValue, 161, FileStorage> tree("list");
 int main() {
   std::ios::sync_with_stdio(false);
   cin.tie(nullptr);
