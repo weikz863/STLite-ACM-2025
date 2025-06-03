@@ -3,11 +3,13 @@
 #ifndef BPT_BBL_
 #define BPT_BBL_
 
-#include <string>
+#include <string_view>
 #include <iostream>
 #include "file.hpp"
 #include "list_bbl.hpp"
 #include "utility.hpp"
+
+using std::string_view;
 
 template<typename Data, size_t block_size, typename Storage = FileStorage>
 requires (std::is_base_of<BasicStorage, Storage>::value && !is_sjtu_pair_with_int<Data>::value)
@@ -24,7 +26,7 @@ class BlockBlockList {
   BlockList<Data, block_size, Storage> leaves;
   BlockList<sjtu::pair<Data, int>, block_size, Storage> heads;
  public:
-  BlockBlockList(const char *str) : storage_handler(str), helper(storage_handler),
+  BlockBlockList(const string_view str) : storage_handler(str.data()), helper(storage_handler),
       leaves(HEAD_ROOT, storage_handler), heads(2 * HEAD_ROOT, storage_handler) {}
   vector<Data> find(const Data &begin, const Data &end) {
     // std::cerr << "BBL::FIND\n";
