@@ -73,7 +73,7 @@ class UniqueMap {
  public:
   UniqueMap(const string& s) : map1(s + "_map1"), map2(s + "_map2") {}
   void insert(const Key& key, const Value& value) {
-    map1.insert(make_pair(key, map2.size()));
+    map1.insert(std::make_pair(key, map2.size()));
     map2.push_back(value);
   }
   FileVector<Value>::ReferenceType operator [] (const Key& key) {
