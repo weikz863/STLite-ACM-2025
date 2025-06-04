@@ -56,6 +56,9 @@ class FileVector {
   FileVector(FileVector&&) = delete;
   FileVector& operator = (const FileVector&) = delete;
   FileVector& operator = (FileVector&&) = delete;
+  ~FileVector() {
+    file.write_at(0, size_);
+  }
   ReferenceType operator [] (int x) {
     if (x < 0 || x >= size_) return {0, file};
     return {static_cast<int>(sizeof(int) + x * sizeof(T)), file};
@@ -82,6 +85,7 @@ class UniqueMap {
   }
   ReferenceType operator [] (const Key& key) {
     auto tmp = map1.find(make_trivial_pair(key, 0), make_trivial_pair(key, INT_MAX));
+    if (tmp.size() > 1) throw sjtu::runtime_error();
     if (tmp.size()) return map2[tmp.front().second];
     else return map2[-1];
   }
