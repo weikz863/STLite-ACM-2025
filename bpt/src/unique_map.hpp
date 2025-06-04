@@ -81,6 +81,9 @@ class UniqueMap {
     if (tmp.size()) return map2[tmp.front().second];
     else return map2[-1];
   }
+  int size() const {
+    return map2.size();
+  }
 };
 
 #endif
