@@ -20,7 +20,7 @@ class FileVector {
     int place;
     FileStorage file;
     ReferenceType(int p, FileStorage f) : place(p), file(f) {
-      file.read_at(place, value);
+      if (place) file.read_at(place, value);
     }
    public:
     ReferenceType(const ReferenceType&) = delete;
@@ -28,13 +28,18 @@ class FileVector {
     ReferenceType& operator = (const ReferenceType&) = delete;
     ReferenceType& operator = (ReferenceType&&) = delete;
     operator T& () {
+      if (!place) throw sjtu::runtime_error();
       return value;
     }
     operator const T& () const {
+      if (!place) throw sjtu::runtime_error();
       return value;
     }
+    bool empty() const {
+      return !place;
+    }
     ~ReferenceType() {
-      file.write_at(place, value);
+      if (place) file.write_at(place, value);
     }
   };
   FileVector(const string_view str) : file(str.data()) {
@@ -50,7 +55,7 @@ class FileVector {
   FileVector& operator = (const FileVector&) = delete;
   FileVector& operator = (FileVector&&) = delete;
   ReferenceType operator [] (int x) {
-    if (x < 0 || x >= size_) throw sjtu::runtime_error();
+    if (x < 0 || x >= size_) return {0, file};
     return {sizeof(int) + x * sizeof(T), file};
   }
   void push_back(const T& x) {
@@ -72,7 +77,9 @@ class UniqueMap {
     map2.push_back(value);
   }
   FileVector<Value>::ReferenceType operator [] (const Key& key) {
-    return map2[map1.find(make_pair(key, 0), make_pair(key, INT_MAX)).front().second];
+    auto tmp = map1.find(make_pair(key, 0), make_pair(key, INT_MAX));
+    if (tmp.size()) return map2[tmp.front().second];
+    else return map2[-1];
   }
 };
 
