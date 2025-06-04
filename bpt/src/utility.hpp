@@ -74,4 +74,20 @@ struct AccumulativeFunc : public std::function<void(T)> {
   }
 };
 
+template<typename T1, typename T2>
+requires (std::is_trivially_copyable<T1>::value && std::is_trivially_copyable<T2>::value)
+struct trivial_pair final {
+  T1 first;
+  T2 second;
+  bool operator < (const trivial_pair& other) {
+    return first < other.first || (!(other.first < first) && second < other.second);
+  }
+};
+
+template<typename T1, typename T2>
+requires (std::is_trivially_copyable<T1>::value && std::is_trivially_copyable<T2>::value)
+trivial_pair<T1, T2> make_trivial_pair(const T1 &x, const T2 &y) {
+  return {x, y};
+};
+
 #endif
