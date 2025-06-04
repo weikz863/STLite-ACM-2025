@@ -77,7 +77,7 @@ class UniqueMap {
     map2.push_back(value);
   }
   FileVector<Value>::ReferenceType operator [] (const Key& key) {
-    auto tmp = map1.find(make_pair(key, 0), make_pair(key, INT_MAX));
+    auto tmp = map1.find(std::make_pair(key, 0), std::make_pair(key, INT_MAX));
     if (tmp.size()) return map2[tmp.front().second];
     else return map2[-1];
   }
