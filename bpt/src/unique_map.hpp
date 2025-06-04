@@ -4,6 +4,7 @@
 #define _UNIQUE_MAP_
 
 #include "blockblocklist.hpp"
+#include "utility.hpp"
 #include <string>
 #include <string_view>
 using std::string, std::string_view;
@@ -27,13 +28,13 @@ class FileVector {
     ReferenceType(ReferenceType&&) = delete;
     ReferenceType& operator = (const ReferenceType&) = delete;
     ReferenceType& operator = (ReferenceType&&) = delete;
-    operator T& () {
+    T* operator -> () {
       if (!place) throw sjtu::runtime_error();
-      return value;
+      return &value;
     }
-    operator const T& () const {
+    const T* operator -> () const {
       if (!place) throw sjtu::runtime_error();
-      return value;
+      return &value;
     }
     bool empty() const {
       return !place;
@@ -41,6 +42,7 @@ class FileVector {
     ~ReferenceType() {
       if (place) file.write_at(place, value);
     }
+    friend FileVector;
   };
   FileVector(const string_view str) : file(str.data()) {
     if (file.file_size() == 0) {
@@ -56,7 +58,7 @@ class FileVector {
   FileVector& operator = (FileVector&&) = delete;
   ReferenceType operator [] (int x) {
     if (x < 0 || x >= size_) return {0, file};
-    return {sizeof(int) + x * sizeof(T), file};
+    return {static_cast<int>(sizeof(int) + x * sizeof(T)), file};
   }
   void push_back(const T& x) {
     file.write_at(file.file_size(), x);
@@ -66,18 +68,20 @@ class FileVector {
 };
 
 template<typename Key, typename Value>
+requires (std::is_trivially_copyable<Key>::value && std::is_trivially_copyable<Value>::value)
 class UniqueMap {
  private:
-  BlockBlockList<std::pair<Key, int>, 4096 / sizeof(std::pair<Key, int>)> map1;
+  BlockBlockList<trivial_pair<Key, int>, 4096 / sizeof(trivial_pair<Key, int>)> map1;
   FileVector<Value> map2;
  public:
+  using ReferenceType = FileVector<Value>::ReferenceType;
   UniqueMap(const string& s) : map1(s + "_map1"), map2(s + "_map2") {}
   void insert(const Key& key, const Value& value) {
-    map1.insert(std::make_pair(key, map2.size()));
+    map1.insert(make_trivial_pair(key, map2.size()));
     map2.push_back(value);
   }
-  FileVector<Value>::ReferenceType operator [] (const Key& key) {
-    auto tmp = map1.find(std::make_pair(key, 0), std::make_pair(key, INT_MAX));
+  ReferenceType operator [] (const Key& key) {
+    auto tmp = map1.find(make_trivial_pair(key, 0), make_trivial_pair(key, INT_MAX));
     if (tmp.size()) return map2[tmp.front().second];
     else return map2[-1];
   }

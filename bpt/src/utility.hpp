@@ -79,7 +79,7 @@ requires (std::is_trivially_copyable<T1>::value && std::is_trivially_copyable<T2
 struct trivial_pair final {
   T1 first;
   T2 second;
-  bool operator < (const trivial_pair& other) {
+  bool operator < (const trivial_pair& other) const {
     return first < other.first || (!(other.first < first) && second < other.second);
   }
 };
