@@ -61,7 +61,7 @@ public:
    */
   class const_iterator;
   class iterator {
-		friend class vector;
+    friend class vector;
   // The following code is written for the C++ type_traits library.
   // Type traits is a C++ feature for describing certain properties of a type.
   // For instance, for an iterator, iterator::value_type is the type that the
@@ -81,9 +81,9 @@ public:
     using iterator_category = std::output_iterator_tag;
 
   private:
-		const T* init;
-		T* ptr;
-		iterator(const T* init_, T* ptr_) : init(init_), ptr(ptr_) {}
+    const T* init;
+    T* ptr;
+    iterator(const T* init_, T* ptr_) : init(init_), ptr(ptr_) {}
   public:
     /**
      * return a new iterator which pointer n-next elements
@@ -102,32 +102,32 @@ public:
     int operator-(const iterator &rhs) const
     {
        if (init != rhs.init) throw invalid_iterator();
-			 return ptr - rhs.ptr;
+       return ptr - rhs.ptr;
     }
     iterator& operator+=(const int &n)
     {
       ptr += n;
-			return *this;
+      return *this;
     }
     iterator& operator-=(const int &n)
     {
       ptr -= n;
-			return *this;
+      return *this;
     }
     iterator operator++(int) {
-			return {init, ptr++};
-		}
+      return {init, ptr++};
+    }
     iterator& operator++() {
-			ptr++;
-			return *this;
-		}
+      ptr++;
+      return *this;
+    }
     iterator operator--(int) {
-			return {init, ptr--};
-		}
+      return {init, ptr--};
+    }
     iterator& operator--() {
-			ptr--;
-			return *this;
-		}
+      ptr--;
+      return *this;
+    }
     T& operator*() const { return *ptr; }
     bool operator==(const iterator &rhs) const { return ptr == rhs.ptr; }
     bool operator==(const const_iterator &rhs) const { return ptr == rhs.ptr; }
@@ -141,7 +141,7 @@ public:
    */
   class const_iterator
   {
-		friend class vector;
+    friend class vector;
   public:
     using difference_type = int;
     using value_type = T;
@@ -150,11 +150,11 @@ public:
     using iterator_category = std::output_iterator_tag;
 
   private:
-		const T* init;
-		const T* ptr;
-		const_iterator(const T* init_, const T* ptr_) : init(init_), ptr(ptr_) {}
+    const T* init;
+    const T* ptr;
+    const_iterator(const T* init_, const T* ptr_) : init(init_), ptr(ptr_) {}
   public:
-		const_iterator operator+(const int &n) const
+    const_iterator operator+(const int &n) const
     {
       return {init, ptr + n};
     }
@@ -165,32 +165,32 @@ public:
     int operator-(const const_iterator &rhs) const
     {
        if (init != rhs.init) throw invalid_iterator();
-			 return ptr - rhs.ptr;
+       return ptr - rhs.ptr;
     }
     const_iterator& operator+=(const int &n)
     {
       ptr += n;
-			return *this;
+      return *this;
     }
     const_iterator& operator-=(const int &n)
     {
       ptr -= n;
-			return *this;
+      return *this;
     }
     const_iterator operator++(int) {
-			return {init, ptr++};
-		}
+      return {init, ptr++};
+    }
     const_iterator& operator++() {
-			ptr++;
-			return *this;
-		}
+      ptr++;
+      return *this;
+    }
     const_iterator operator--(int) {
-			return {init, ptr--};
-		}
+      return {init, ptr--};
+    }
     const_iterator& operator--() {
-			ptr--;
-			return *this;
-		}
+      ptr--;
+      return *this;
+    }
     const T& operator*() const { return *ptr; }
     bool operator==(const iterator &rhs) const { return ptr == rhs.ptr; }
     bool operator==(const const_iterator &rhs) const { return ptr == rhs.ptr; }
@@ -219,7 +219,7 @@ public:
     alloc.deallocate(arr, capacity_);
   }
   vector &operator=(const vector &other) {
-		if (this == &other) return *this;
+    if (this == &other) return *this;
     for(size_t i = 0; i < size_; i++) {
       std::destroy_at(arr + i);
     }
@@ -229,7 +229,7 @@ public:
     for (size_t i = 0; i < size_; i++) {
       std::construct_at(arr + i, other.arr[i]);
     }
-		return *this;
+    return *this;
   }
   vector &operator=(vector &&other) {
     size_ = other.size_;
@@ -246,67 +246,75 @@ public:
    * !!! Pay attentions
    *   In STL this operator does not check the boundary but I want you to do.
    */
-	T & operator[](const size_t &pos) {
-		if (pos >= size_) throw index_out_of_bound();
-		return arr[pos];
-	}
-	const T & operator[](const size_t &pos) const {
-		if (pos >= size_) throw index_out_of_bound();
-		return arr[pos];
-	}
+  T & operator[](const size_t &pos) {
+    if (pos >= size_) throw index_out_of_bound();
+    return arr[pos];
+  }
+  const T & operator[](const size_t &pos) const {
+    if (pos >= size_) throw index_out_of_bound();
+    return arr[pos];
+  }
   /**
    * assigns specified element with bounds checking
    * throw index_out_of_bound if pos is not in [0, size)
    */
-	T & at(const size_t &pos) {
-		if (pos >= size_) throw index_out_of_bound();
-		return arr[pos];
-	}
-	const T & at(const size_t &pos) const {
-		if (pos >= size_) throw index_out_of_bound();
-		return arr[pos];
-	}
+  T & at(const size_t &pos) {
+    if (pos >= size_) throw index_out_of_bound();
+    return arr[pos];
+  }
+  const T & at(const size_t &pos) const {
+    if (pos >= size_) throw index_out_of_bound();
+    return arr[pos];
+  }
 
   /**
    * access the first element.
    * throw container_is_empty if size == 0
    */
+  T & front() {
+    if (size_ == 0) throw container_is_empty();
+    return arr[0];
+  }
   const T & front() const {
-		if (size_ == 0) throw container_is_empty();
-		return arr[0];
-	}
+    if (size_ == 0) throw container_is_empty();
+    return arr[0];
+  }
   /**
    * access the last element.
    * throw container_is_empty if size == 0
    */
+  T & back() {
+    if (size_ == 0) throw container_is_empty();
+    return arr[size_ - 1];
+  }
   const T & back() const {
-		if (size_ == 0) throw container_is_empty();
-		return arr[size_ - 1];
-	}
+    if (size_ == 0) throw container_is_empty();
+    return arr[size_ - 1];
+  }
   /**
    * returns an iterator to the beginning.
    */
   iterator begin() {
-		return {arr, arr};
-	}
+    return {arr, arr};
+  }
   const_iterator begin() const {
-		return {arr, arr};
-	}
+    return {arr, arr};
+  }
   const_iterator cbegin() const {
-		return {arr, arr};
-	}
+    return {arr, arr};
+  }
   /**
    * returns an iterator to the end.
    */
   iterator end() {
-		return {arr, arr + size_};
-	}
+    return {arr, arr + size_};
+  }
   const_iterator end() const {
-		return {arr, arr + size_};
-	}
+    return {arr, arr + size_};
+  }
   const_iterator cend() const {
-		return {arr, arr + size_};
-	}
+    return {arr, arr + size_};
+  }
   /**
    * checks whether the container is empty
    */
@@ -331,16 +339,16 @@ public:
    * returns an iterator pointing to the inserted value.
    */
   iterator insert(iterator pos, const T &value) {
-		size_t ind = pos.ptr - arr;
-		try_double();
+    size_t ind = pos.ptr - arr;
+    try_double();
     std::construct_at(arr + size_, value);
-		for (size_t i = size_; i > ind; i--) {
-			arr[i] = std::move(arr[i - 1]);
-		}
-		arr[ind] = value;
-		size_++;
-		return {arr, arr + ind};
-	}
+    for (size_t i = size_; i > ind; i--) {
+      arr[i] = std::move(arr[i - 1]);
+    }
+    arr[ind] = value;
+    size_++;
+    return {arr, arr + ind};
+  }
   /**
    * inserts value at index ind.
    * after inserting, this->at(ind) == value
@@ -348,54 +356,54 @@ public:
    * throw index_out_of_bound if ind > size (in this situation ind can be size because after inserting the size will increase 1.)
    */
   iterator insert(const size_t &ind, const T &value) {
-		if (ind > size_) throw index_out_of_bound();
-		try_double();
+    if (ind > size_) throw index_out_of_bound();
+    try_double();
     std::construct_at(arr + size_, value);
-		for (size_t i = size_; i > ind; i--) {
-			arr[i] = std::move(arr[i - 1]);
-		}
-		arr[ind] = value;
-		size_++;
-		return {arr, arr + ind};
-	}
+    for (size_t i = size_; i > ind; i--) {
+      arr[i] = std::move(arr[i - 1]);
+    }
+    arr[ind] = value;
+    size_++;
+    return {arr, arr + ind};
+  }
   /**
    * removes the element at pos.
    * return an iterator pointing to the following element.
    * If the iterator pos refers the last element, the end() iterator is returned.
    */
   iterator erase(iterator pos) {
-		size_t ind = pos.ptr - arr;
-		for (size_t i = ind; i + 1 < size_; i++) {
-			arr[i] = std::move(arr[i + 1]);
-		}
-		size_--;
+    size_t ind = pos.ptr - arr;
+    for (size_t i = ind; i + 1 < size_; i++) {
+      arr[i] = std::move(arr[i + 1]);
+    }
+    size_--;
     std::destroy_at(arr + size_);
-		try_shrink();
-		return {arr, arr + ind};
-	}
+    try_shrink();
+    return {arr, arr + ind};
+  }
   /**
    * removes the element with index ind.
    * return an iterator pointing to the following element.
    * throw index_out_of_bound if ind >= size
    */
   iterator erase(const size_t &ind) {
-		if (ind >= size_) throw index_out_of_bound();
-		for (size_t i = ind; i + 1 < size_; i++) {
-			arr[i] = std::move(arr[i + 1]);
-		}
-		size_--;
+    if (ind >= size_) throw index_out_of_bound();
+    for (size_t i = ind; i + 1 < size_; i++) {
+      arr[i] = std::move(arr[i + 1]);
+    }
+    size_--;
     std::destroy_at(arr + size_);
-		try_shrink();
-		return {arr, arr + ind};
-	}
+    try_shrink();
+    return {arr, arr + ind};
+  }
   /**
    * adds an element to the end.
    */
   void push_back(const T &value) {
-		try_double();
-		std::construct_at(arr + size_, value);
-		size_++;
-	}
+    try_double();
+    std::construct_at(arr + size_, value);
+    size_++;
+  }
   /**
    * remove the last element from the end.
    * throw container_is_empty if size() == 0
