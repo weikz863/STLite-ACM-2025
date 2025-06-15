@@ -7,6 +7,7 @@
 #include "utility.hpp"
 #include <string>
 #include <string_view>
+#include <functional>
 using std::string, std::string_view;
 
 template<typename T>
@@ -91,6 +92,12 @@ class FileVector {
     size_++;
   }
   int size() const { return size_; }
+  void for_each(const std::function<void(T&)>& foo) {
+    for (int x = 0; x < size_; x++) {
+      auto ref = (*this)[x];
+      foo(*ref);
+    }
+  }
 };
 
 template<typename Key, typename Value>
@@ -127,6 +134,9 @@ class UniqueMap {
   }
   int size() const {
     return map2.size();
+  }
+  void for_each(const std::function<void(Value&)>& foo) {
+    map2.for_each(foo);
   }
 };
 
